@@ -84,7 +84,7 @@ New agents receive additional maintenance instructions, preserving their existin
 
 ## Notifications and acknowledgment
 
-New pins start unread. Existing pins from before this feature start read. Unread pins show a **7px dot over the icon** and a medium-weight title; the workspace control shows **Pins (N)**, returning to **Pins** at zero. Opening the menu does not mark anything read.
+New pins start unread. Existing pins from before this feature start read. Unread pins show a **7px dot over the icon** and a semibold title; the workspace control shows **Pins (N)**, returning to **Pins** at zero. Opening the menu does not mark anything read.
 
 For a meaningful update to an existing pin, add `notify` to an upsert or batch entry:
 
@@ -99,7 +99,7 @@ For a meaningful update to an existing pin, add `notify` to an upsert or batch e
 
 Reuse an event ID for retries; choose a fresh ID for a different meaningful update. IDs are trimmed and limited to 128 characters; optional reasons to 240. A new event can notify without a URL change. Routine edits without `notify` preserve read state. Retrying any consumed event ID does not notify again, even after a newer event or acknowledgment. Each unread pin counts once.
 
-Users can open a link, use its **Mark as read** checkmark (hover/focus on desktop, always visible on touch), or the top-right **ListChecks** action (tooltip: “Mark as read”) to mark all displayed updates read. The action stays visible but disabled when everything is read. Read state is shared across clients connected to this workspace on the same daemon. Acknowledgment captures the displayed notification token, so it cannot clear a newer update or a removed-and-recreated pin. Agents cannot acknowledge through maintenance tools.
+Users can open a link, use its **Mark as read** checkmark (always visible on unread pins), or the top-right **ListChecks** action (tooltip: “Mark as read”) to mark all displayed updates read. The action stays visible but disabled when everything is read. Read state is shared across clients connected to this workspace on the same daemon. Acknowledgment captures the displayed notification token, so it cannot clear a newer update or a removed-and-recreated pin. Agents cannot acknowledge through maintenance tools.
 
 The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins` and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links do not yet acknowledge pins.
 

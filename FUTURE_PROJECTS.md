@@ -31,7 +31,7 @@ Existing pins beginning read when notifications are introduced is now agreed in 
 
 ## 1. Notifications and updates
 
-Detailed plan: [Notice new and meaningfully updated pins](plans/01-notifications.md). Agreed first-version refinements: existing pins begin read; unread rows use the selected 7px dot over the top-right of the resource icon and a slightly stronger title; the shared workspace count appears as `Pins (N)` because the installed API has no separate badge field. Per-pin acknowledgment appears on hover/focus and stays visible on touch.
+Detailed plan: [Notice new and meaningfully updated pins](plans/01-notifications.md). Agreed first-version refinements: existing pins begin read; unread rows use the selected 7px dot over the top-right of the resource icon and a slightly stronger title; the shared workspace count appears as `Pins (N)` because the installed API has no separate badge field. Per-pin acknowledgment stays visible on unread pins, with a distinct button background on hover/focus/press.
 
 Show users which pins are new or have changes worth their attention, with an unread count on the Pins control and a distinct appearance for unread rows. The first version uses the label `Pins (N)`; a separate badge is deferred.
 

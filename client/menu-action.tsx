@@ -25,7 +25,7 @@ export function MenuAction({
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const showTooltip = (!touch && hovered) || focused;
-  const size = touch ? 44 : 28;
+  const size = touch ? 44 : 24;
   return (
     <View style={{ position: "relative", zIndex: showTooltip ? 1 : 0 }}>
       <Pressable
@@ -43,7 +43,7 @@ export function MenuAction({
           height: size,
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 4,
+          borderRadius: 8,
           borderWidth: 1,
           borderColor: focused ? theme.colors.accent : "transparent",
           backgroundColor:

@@ -76,13 +76,26 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
   );
 
   return (
-    <View style={{ width: layout.compact ? "100%" : 320, maxWidth: "100%" }}>
-      {/* Paseo adds 12px padding plus 4px vertically; leave a 6px desktop inset. */}
+    <View style={{ width: layout.compact ? "100%" : 252, maxWidth: "100%" }}>
+      {/* Paint our content through Paseo's padding; the host still owns the outer chrome. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: -16,
+          bottom: -16,
+          left: -12,
+          right: -12,
+          backgroundColor: theme.colors.surface2,
+          borderRadius: layout.compact ? 0 : 8,
+        }}
+      />
+      {/* Four-pixel desktop row inset, matching the built-in menu. */}
       <View
         style={{
-          gap: 2,
-          marginHorizontal: layout.compact ? 0 : -6,
-          marginVertical: layout.compact ? 0 : -10,
+          gap: 0,
+          marginHorizontal: layout.compact ? 0 : -8,
+          marginVertical: layout.compact ? 0 : -12,
         }}
       >
         {Boolean(query.data?.pins.length) && (
@@ -92,7 +105,14 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
               flexDirection: "row",
               justifyContent: "flex-end",
               gap: 4,
-              paddingRight: 4,
+              // Extend the divider through the host inset, preserving action alignment.
+              marginHorizontal: layout.compact ? -12 : -4,
+              paddingLeft: layout.compact ? 12 : 4,
+              paddingRight: layout.compact ? 16 : 8,
+              marginTop: layout.compact ? 0 : -2,
+              marginBottom: layout.compact ? 12 : 4,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.border,
               zIndex: 1,
             }}
           >
@@ -141,7 +161,6 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
             pin={pin}
             theme={theme}
             touch={touch}
-            compact={layout.compact}
             busy={busy}
             onOpen={() => {
               void open(pin);

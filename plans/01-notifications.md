@@ -22,7 +22,7 @@ Agreed behavior:
 - Agents decide whether an existing pin has a meaningful update. Changing its URL, title, or type alone does not notify; an update at an unchanged URL can notify.
 - Count distinct unread pins, not update events. Updating the same unread pin repeatedly still counts as one. Removing an unread pin removes its contribution to the count.
 - Opening a pin acknowledges the update the user opened. Merely opening the menu does not acknowledge anything.
-- Offer per-pin **Mark as read** and **Mark all as read**. The per-pin checkmark appears on hover or keyboard focus, and remains visible on touch devices.
+- Offer per-pin **Mark as read** and **Mark all as read**. The per-pin checkmark is always visible for unread pins, with a distinct button background on hover, keyboard focus, or press.
 - Read state is shared across all clients connected to the same workspace on the same daemon. Separate identities and read histories for different people are outside this first version.
 
 ```text
@@ -38,7 +38,7 @@ Workspace controls                         [ Pins (2) ▾ ]
                                            └──────────────────────────────┘
 ```
 
-The checkmark is shown on the hovered/focused first row in this illustration. Reserve its space to prevent layout shifts. Use the existing 13px title size, changing weight from regular to medium for unread pins; do not increase row height or reintroduce a list title, total count, icon background, or external-link indicator. The 7px dot uses the theme accent with a 2px surface-colored halo; its overlay leaves text aligned with read pins. The unread dot and accessible label must make state understandable without relying on font weight or color alone.
+Each unread row shows a checkmark; the illustration abbreviates the repeated controls. Reserve its space to prevent layout shifts. Use the existing 13px title size, matching the built-in active menu item at medium weight, with semibold for unread pins; do not increase row height or reintroduce a list title, total count, icon background, or external-link indicator. The 7px dot uses the theme accent with a 2px surface-colored halo; its overlay leaves text aligned with read pins. The desktop menu is about 276px wide including host padding, with 4px row insets, 16px resource icons, rounded hover rows, and the theme surface2 background. Titles use foreground, secondary hosts and icons use foregroundMuted; hover uses an 8.64% foreground overlay to match the reference’s disabled-row hover while keeping text at full opacity. Row corners use an 8px radius, and the first row has a gap below the toolbar equal to the side inset. Paseo continues to own the outer popover chrome. The unread dot and accessible label must make state understandable without relying on font weight or color alone.
 
 Place the mark-all action in a compact toolbar above the list, aligned right. Use a `ListChecks` icon with the tooltip “Mark as read” and accessible name “Mark all pins as read”. Keep it visible but disabled when there are no unread pins, and hide the toolbar for an empty list. This row can accommodate future crosscutting actions. Its action applies to the unread updates in the displayed list, protecting updates that arrive concurrently. Clicking a checkmark must not open the link or close the menu. After marking all displayed updates read, leave the menu open.
 
@@ -138,9 +138,9 @@ Cross-device synchronization is eventual: while the relevant UI is mounted and c
 
 Refactor each row into a layout containing sibling press targets: the resource link and the acknowledgment checkmark. Do not nest an acknowledgment button inside the existing link press target.
 
-- Overlay the dot within the existing 24px icon box; keep the action slot stable so text does not jump as focus/hover or read state changes.
+- Overlay the dot within the 20×24px icon box; keep the action slot stable so text does not jump as focus/hover or read state changes.
 - Use theme tokens for the dot, text, and focus/hover feedback; keep the existing icon background absent.
-- On pointer interfaces reveal the checkmark while the row is hovered or either action has keyboard focus. The action remains keyboard reachable even while visually concealed. On touch, show it for unread pins without requiring hover; hybrid devices must still be operable.
+- Keep the checkmark visible on unread pins on pointer and touch interfaces. Hover, focus, and press highlight the button independently from the row; keyboard access and touch targets remain available.
 - Label the action “Mark {title} as read” and expose unread state in the link's accessibility label. Preserve a usable touch target and visible keyboard focus.
 - Disable an in-flight acknowledgment action to avoid accidental repeat requests. Treat stale-token results as benign and render the returned newer state.
 

@@ -1,9 +1,9 @@
 * { box-sizing: border-box; }
 :root {
   --row-padding: 4px;
-  --menu-inset: 6px;
+  --menu-inset: 4px;
   --dot-size: 5px;
-  --unread-weight: 500;
+  --unread-weight: 600;
   --attention: #488b69;
   --bg: #ffffff;
   --surface: #fafafa;
@@ -84,9 +84,29 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--attention); outl
 @media (hover:none) { .dot-right .ack-slot > .dot { opacity:0; } }
 
 /* Shared actions sit above the selected list, aligned to the right. */
-.menu-actions { display:flex; justify-content:flex-end; gap:4px; padding-right:4px; margin-bottom:2px; }
-.menu-actions button { display:flex; align-items:center; justify-content:center; width:28px; height:28px; color:var(--muted); border-radius:4px; }
+.menu-actions { display:flex; justify-content:flex-end; gap:4px; padding-left:var(--menu-inset); padding-right:calc(var(--menu-inset) + 4px); margin-left:calc(-1 * var(--menu-inset)); margin-right:calc(-1 * var(--menu-inset)); margin-top:-4px; border-bottom:1px solid var(--border); margin-bottom:2px; }
+.menu-actions button { display:flex; align-items:center; justify-content:center; width:24px; height:24px; color:var(--muted); border-radius:4px; }
 .menu-actions button:hover:not(:disabled) { background:var(--hover); }
 .menu-actions button:disabled { opacity:.4; cursor:default; }
 .menu-actions svg { width:16px; height:16px; }
 .touch .menu-actions button { width:44px; height:44px; }
+.touch .menu-actions { margin-top:0; margin-left:-12px; margin-right:-12px; padding-left:12px; padding-right:16px; }
+
+/* Selected menu follows Paseo's active built-in menu styling. */
+.dot-overlay { --surface:var(--control); --hover:color-mix(in srgb, var(--foreground) 8.64%, var(--surface)); }
+.dot-overlay .popover { width:276px; border-radius:8px; }
+.dot-overlay.touch .popover { width:100%; border-radius:14px 14px 0 0; }
+.dot-overlay .pin-list { gap:0; }
+.dot-overlay .pin-row, .dot-overlay .pin-link { border-radius:8px; }
+.dot-overlay .pin-link { gap:8px; padding:var(--row-padding) 8px; }
+.dot-overlay .resource { width:20px; }
+.dot-overlay .resource svg { width:16px; height:16px; }
+.dot-overlay .pin-title { font-weight:500; }
+.dot-overlay .pin-row.unread .pin-title { font-weight:var(--unread-weight); }
+.dot-overlay .menu-actions { margin-top:-2px; margin-bottom:var(--menu-inset); }
+.dot-overlay.touch .menu-actions { margin-top:0; margin-bottom:12px; }
+
+.dot-overlay .ack { border:1px solid transparent; opacity:1; border-radius:8px; }
+.dot-overlay .menu-actions button { border-radius:8px; }
+.dot-overlay .ack:hover, .dot-overlay .ack:focus-visible { background:var(--bg); border-color:var(--border); color:var(--foreground); }
+.dot-overlay .ack:focus-visible { border-color:var(--attention); }

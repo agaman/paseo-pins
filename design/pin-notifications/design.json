@@ -106,7 +106,7 @@
       "max": 12,
       "step": 1,
       "unit": "px",
-      "default": 6
+      "default": 4
     },
     {
       "id": "dot-size",
@@ -134,7 +134,7 @@
           "value": "600"
         }
       ],
-      "default": "500"
+      "default": "600"
     }
   ]
 }

@@ -55,3 +55,38 @@ Agent tool definitions were exercised directly in the focused tests. Reload inva
 Replaced the footer's Mark all text with a `ListChecks` icon in a right-aligned toolbar above the pins. Hover and keyboard focus show “Mark as read”; the accessible name remains “Mark all pins as read”. The action is disabled when everything is read, and an empty list omits the toolbar. Touch retains a 44px target. Selected canvas references and the notification plan match this change.
 
 Focused checks: formatting/lint, TypeScript, Knip, and whitespace checks pass. Live Chromium inspection confirmed that Paseo renders the icon, the toolbar sits above the list, the old footer is absent, and the tooltip works on hover/focus in light/dark themes, with no page errors. These checks did not acknowledge the user's unread pins. Working-feature review and broader validation remain pending.
+
+### Built-in menu styling
+
+Matched active menu typography to Archive workspace (13px, 18px line height, medium weight, theme foreground). Unread titles use semibold. The menu now uses theme surface2, 4px desktop row insets, 16px resource icons, and rounded hover rows with a 12% theme-foreground overlay. Desktop width is approximately 276px including host padding instead of 344px. The compact layout still fills the available width. Paseo owns the outer popover chrome.
+
+Lint/format, TypeScript, and Knip pass. Live browser inspection compared the title's computed color, size, weight, and line height directly against Archive workspace; verified 276px desktop width, 4px row insets, full-width compact divider, and light/dark rendering with no page errors. No pins were opened or acknowledged. Updated the selected canvas reference and plan; working-feature review remains pending.
+
+### Hover and spacing correction
+
+The reference Pull row applies 72% overall opacity to its 12% foreground hover. Pins now applies the equivalent 8.64% foreground overlay to the background only, preserving active foreground text. Reduced row corners to 8px and set the divider-to-first-row gap equal to the side inset (4px desktop, 12px compact). Updated the selected canvas styles and plan. Lint, format, TypeScript, and whitespace checks pass; live light/dark inspection confirmed the corrected desktop hover, corners, and spacing. No pin state was changed.
+
+### Notification cutout
+
+The 2px halo around the 7px notification dot now repaints the menu surface plus the same theme-foreground overlay as the row during hover, focus, and press. This masks the resource icon without a contrasting ring. Lint/format and TypeScript pass. Live light/dark checks confirmed matching row/halo colors and opacity on hover and keyboard focus; no pins were acknowledged.
+
+### Per-pin acknowledgment hover
+
+The checkmark action now has its own theme surface1 fill and border on hover/press, foreground icon color on hover/focus, and an accent border for keyboard focus. Hovering only the row leaves the button unfilled. Lint/format and TypeScript pass; live light/dark inspection confirmed separate button hover and keyboard focus without acknowledging any pins. The selected canvas reference includes the button treatment.
+
+### Always-visible unread checkmarks
+
+Unread pins now always show the checkmark, including desktop pointer layouts. Its independent background still appears only on hover, focus, or press. Updated the canvas reference and current behavior documentation. Lint/format and TypeScript pass; browser checks verified resting visibility plus hover/focus distinction in light and dark without acknowledging pins.
+
+## Styling review and commit checkpoint
+
+Reviewed the uncommitted styling/design/documentation changes against `83928c4` with two independent read-only reviewers (UI/design-system/accessibility and correctness/regression/architecture). Both final reviews report no actionable findings after these fixes:
+
+| Finding | Resolution | Verification |
+| --- | --- | --- |
+| P2: acknowledgment hover/focus could keep a read row highlighted after its checkmark unmounted | Ignore acknowledgment-only interaction state immediately when read, then clear it while preserving link hover/focus | Reproduced before the fix in the real composed route; pointer exit, keyboard acknowledgment, and a subsequent notification now all clear the obsolete highlight |
+| P3: selected canvas layout overrode its Row padding control | Restore `var(--row-padding)` in the selected link rule | Both 2px and 8px values verified on all six selected/read/touch artboards |
+
+Final scoped validation passed: the complete `npm run check` gate (lint, formatting, TypeScript, Knip, duplicate detection, and all 23 tests), plus whitespace checks. Browser review covered light/dark desktop and 390px touch-emulated layouts, long-title wrapping, 44px touch actions, always-visible unread checkmarks, independent button feedback, stable text alignment, full-width divider, equal top/side list insets, Mark all behavior, and the selected canvas preview. Paseo reports the reloaded plugin running.
+
+Browser-local RPC fixtures exercised acknowledgment transitions without changing live pins. Temporary validation scripts and screenshots are under `/tmp/paseo-pins-qa/review-*`. Native-device, broader provider, and isolated-daemon restart coverage was not run for this styling-only commit; those earlier feature-validation limitations remain. No merge or publication is authorized by this checkpoint.
