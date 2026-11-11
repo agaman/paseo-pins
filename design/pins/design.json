@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "title": "Pins",
+  "kind": "prototype",
+  "description": "Selected resource-icon design, implemented in the plugin. Compact menu spacing, resource type icons, title and destination host; no content heading, count, or external-link indicator.",
+  "artboards": [
+    {
+      "id": "icons-light",
+      "title": "Resource icons \u00b7 light",
+      "file": "icons-light.html",
+      "width": 440,
+      "height": 420,
+      "group": "Light appearance"
+    },
+    {
+      "id": "icons-dark",
+      "title": "Resource icons \u00b7 dark",
+      "file": "icons-dark.html",
+      "width": 440,
+      "height": 420,
+      "group": "Dark appearance"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "width",
+      "label": "Popover width",
+      "type": "range",
+      "var": "--popover-width",
+      "min": 280,
+      "max": 380,
+      "step": 4,
+      "unit": "px",
+      "default": 344
+    },
+    {
+      "id": "spacing",
+      "label": "Row padding",
+      "type": "range",
+      "var": "--row-padding",
+      "min": 4,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "id": "radius",
+      "label": "Corner radius",
+      "type": "range",
+      "var": "--popover-radius",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "id": "destinations",
+      "label": "Show destinations",
+      "type": "toggle",
+      "var": "--destination-display",
+      "on": "block",
+      "off": "none",
+      "default": true
+    }
+  ]
+}

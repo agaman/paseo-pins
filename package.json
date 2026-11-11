@@ -1,0 +1,44 @@
+{
+  "name": "paseo-pins",
+  "private": true,
+  "version": "0.1.0",
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "OVERVIEW.*.md",
+    "index.client.ts",
+    "index.client.tsx",
+    "index.server.ts",
+    "index.server.tsx",
+    "client/",
+    "server/",
+    "shared/"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx tests/pins.test.ts",
+    "lint": "biome check --formatter-enabled=false --error-on-warnings .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "fix": "biome check --write --error-on-warnings .",
+    "knip": "knip",
+    "duplicates": "jscpd .",
+    "hooks:install": "git config --local core.hooksPath .githooks",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm run duplicates && npm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@getpaseo/plugin": "0.15.2",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.2.0",
+    "jscpd": "5.4.3",
+    "knip": "6.45.1",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  },
+  "type": "module"
+}

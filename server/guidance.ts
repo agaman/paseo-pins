@@ -1,0 +1,9 @@
+export const pinGuidance = `When pins tools are available, keep workspace pins useful and current. When your work produces or changes a resource the user should access, call pins_list and add or update the relevant link with pins_upsert. When making multiple changes, prefer pins_apply with upsert links and remove keys; it preserves unmentioned pins and returns the resulting list, so no follow-up pins_list is needed. Prefer the current preview, staging environment, review request, example, or deliverable. Reuse an existing key for the same purpose. Use pins_remove for links you know are obsolete, expired, or superseded. Do not remove another agent's useful resource merely because it is unrelated to your task, and do not treat age alone as expiry. Use URLs reachable from the user's device without embedded credentials or secrets; a remote daemon's localhost is not the user's desktop. Before handing work back, reconcile pins when resources changed; otherwise leave them alone.`;
+const marker = "[paseo-pins guidance v1]";
+
+export function withPinGuidance(existing?: string): string {
+  if (existing?.includes(marker)) return existing;
+  return [existing, `${marker}\n${pinGuidance}\n[/paseo-pins guidance]`]
+    .filter(Boolean)
+    .join("\n\n");
+}

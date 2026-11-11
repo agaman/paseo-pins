@@ -1,0 +1,6 @@
+{
+  "id": "paseo-pins",
+  "name": "Pins",
+  "description": "Useful workspace links, maintained by your agents.",
+  "requirements": { "paseo": ">=0.15.2" }
+}
