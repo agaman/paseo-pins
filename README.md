@@ -93,3 +93,5 @@ Pins are links, not a secret store. The plugin rejects non-HTTP(S) schemes and e
 The open popover refreshes every two seconds; failures retain the previous list with an error indication. Browser popup blocking cannot always be detected by the host opener.
 
 See [PLAN.md](PLAN.md) for the agreed scope and product-review checkpoint. Sidebar access, chat summaries, file pins, and explicit Paseo-browser opening are deferred.
+
+See [FUTURE_PROJECTS.md](FUTURE_PROJECTS.md) for the ten future project briefs and the product decisions behind them. These are planning notes, not implemented features.
