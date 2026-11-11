@@ -90,3 +90,21 @@ Reviewed the uncommitted styling/design/documentation changes against `83928c4` 
 Final scoped validation passed: the complete `npm run check` gate (lint, formatting, TypeScript, Knip, duplicate detection, and all 23 tests), plus whitespace checks. Browser review covered light/dark desktop and 390px touch-emulated layouts, long-title wrapping, 44px touch actions, always-visible unread checkmarks, independent button feedback, stable text alignment, full-width divider, equal top/side list insets, Mark all behavior, and the selected canvas preview. Paseo reports the reloaded plugin running.
 
 Browser-local RPC fixtures exercised acknowledgment transitions without changing live pins. Temporary validation scripts and screenshots are under `/tmp/paseo-pins-qa/review-*`. Native-device, broader provider, and isolated-daemon restart coverage was not run for this styling-only commit; those earlier feature-validation limitations remain. No merge or publication is authorized by this checkpoint.
+
+### Empty-state width correction
+
+The empty message is now just “No pins yet”, centered. An attempted 140px content width exposed an important host constraint: Paseo's outer popover enforces `min-width: 280px`, independently of plugin content. Earlier 276px measurements described the content/divider bounds, not the full host shell. The installed button API exposes no popover-width override.
+
+Removed the content-only shrink and set desktop content to 254px (280px minus the host's 2px border and 24px padding). This centers the message across the actual menu and paints its whole interior consistently. Corrected the plan and selected canvas width to 280px. Lint/format and TypeScript pass. A browser-local empty fixture verified the full outer width, text center, and edge-to-edge background without touching live pins. A narrower outer popover remains unsupported by the current plugin API; no Paseo internals were changed.
+
+### Selected icon-button colors and toolbar spacing
+
+The per-pin acknowledgment button uses the darker canvas option on hover, focus, and press: 18% theme foreground mixed into surface2 in light themes, and surface0 in dark themes. The toolbar action retains its existing border-token hover fill. Added 4px below the toolbar button before the divider, and updated the selected canvas reference.
+
+TypeScript and scoped Biome checks pass. Browser-local fixtures verified valid light/dark button colors, unchanged toolbar fill, the 4px gap, pointer/keyboard acknowledgment, subsequent notifications, and 44px touch targets. The touch sheet inset check uses a half-pixel tolerance for animated positioning after an exact comparison differed by 0.049px. The plugin was reloaded and reports running. Comprehensive validation remains pending product review; live pins were not changed.
+
+### Empty-state and icon-button commit review
+
+Two independent reviewers checked all changes against `17fa5bb`, including the untracked theme helper and canvas variants. Correctness/regression/architecture and UI/theme/accessibility reviews both found no actionable issues. The public plugin contract specifies hex theme colors, which the helper uses without relying on host internals.
+
+The complete `npm run check` gate passed: lint, formatting, TypeScript, Knip, duplicate detection, and all 23 tests. This completes the comprehensive validation deferred above. The existing composed-route light/dark desktop and touch-emulation checks cover the final implementation; native-device inspection was not performed. No live pin data was changed during validation.

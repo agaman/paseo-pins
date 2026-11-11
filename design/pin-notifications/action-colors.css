@@ -1,0 +1,33 @@
+/* Explorations only. All fills derive from the reference theme surfaces. */
+.action-colors {
+  --current-button: #fafafa;
+  --darker-button: color-mix(in srgb, var(--foreground) 18%, var(--surface));
+}
+.action-colors.dark {
+  --surface: var(--control);
+  --hover: color-mix(in srgb, var(--foreground) 8.64%, var(--surface));
+  --current-button: #202522;
+  --darker-button: var(--bg);
+}
+.variant-current { --button-hover: var(--current-button); }
+.variant-darker { --button-hover: var(--darker-button); }
+.variant-midpoint { --button-hover: color-mix(in srgb, var(--current-button) 50%, var(--hover)); }
+
+.action-colors .ack-slot { width:28px; }
+.action-colors .ack { width:28px; }
+.action-colors .destination { margin-top:0; }
+.action-colors .menu-actions button { border:1px solid transparent; }
+.action-colors .ack:is(:hover, :focus-visible),
+.action-colors .menu-actions button:is(:hover, :focus-visible):not(:disabled),
+.action-colors.showcase .sample-row.unread .ack,
+.action-colors.showcase .menu-actions button:not(:disabled) {
+  background:var(--button-hover);
+  border-color:var(--border);
+  color:var(--foreground);
+}
+.action-colors button:focus-visible { border-color:var(--attention); }
+.action-colors.showcase .sample-row { background:var(--hover); }
+.action-colors.showcase .sample-row .dot { box-shadow:0 0 0 2px var(--hover); }
+.action-colors .controls-heading { font-size:12px; letter-spacing:0; color:var(--foreground); }
+.showcase-toggle { display:flex; gap:5px; align-items:center; margin:0 0 10px; }
+.showcase-toggle input { margin:0; accent-color:var(--attention); }

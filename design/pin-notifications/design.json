@@ -1,12 +1,60 @@
 {
   "version": 1,
-  "title": "Pins \u00b7 Notifications",
+  "title": "Pins · Notifications",
   "kind": "prototype",
   "description": "Selected design: 7px unread dot over the top-right of the resource icon, with no leading status column. Interactive acknowledgment and count states.",
   "artboards": [
     {
+      "id": "actions-current-light",
+      "title": "A · Current light surface · Light",
+      "file": "actions-current-light.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Light"
+    },
+    {
+      "id": "actions-darker-light",
+      "title": "B · Darker than row · Light",
+      "file": "actions-darker-light.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Light"
+    },
+    {
+      "id": "actions-midpoint-light",
+      "title": "C · Midpoint · Light",
+      "file": "actions-midpoint-light.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Light"
+    },
+    {
+      "id": "actions-current-dark",
+      "title": "A · Current surface · Dark",
+      "file": "actions-current-dark.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Dark"
+    },
+    {
+      "id": "actions-darker-dark",
+      "title": "B · Darker than row · Dark",
+      "file": "actions-darker-dark.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Dark"
+    },
+    {
+      "id": "actions-midpoint-dark",
+      "title": "C · Midpoint · Dark",
+      "file": "actions-midpoint-dark.html",
+      "width": 360,
+      "height": 430,
+      "group": "Icon button colors · Dark"
+    },
+    {
       "id": "dot-overlay-light",
-      "title": "Selected \u00b7 Light",
+      "title": "Selected · Light",
       "file": "dot-overlay-light.html",
       "width": 440,
       "height": 430,
@@ -14,7 +62,7 @@
     },
     {
       "id": "dot-overlay-dark",
-      "title": "Selected \u00b7 Dark",
+      "title": "Selected · Dark",
       "file": "dot-overlay-dark.html",
       "width": 440,
       "height": 430,
@@ -22,7 +70,7 @@
     },
     {
       "id": "unread-light",
-      "title": "Left dot \u00b7 Light",
+      "title": "Left dot · Light",
       "file": "unread-light.html",
       "width": 440,
       "height": 430,
@@ -30,7 +78,7 @@
     },
     {
       "id": "dot-right-light",
-      "title": "Right dot \u00b7 Light",
+      "title": "Right dot · Light",
       "file": "dot-right-light.html",
       "width": 440,
       "height": 430,
@@ -38,7 +86,7 @@
     },
     {
       "id": "unread-dark",
-      "title": "Left dot \u00b7 Dark",
+      "title": "Left dot · Dark",
       "file": "unread-dark.html",
       "width": 440,
       "height": 430,
@@ -46,7 +94,7 @@
     },
     {
       "id": "dot-right-dark",
-      "title": "Right dot \u00b7 Dark",
+      "title": "Right dot · Dark",
       "file": "dot-right-dark.html",
       "width": 440,
       "height": 430,
@@ -54,7 +102,7 @@
     },
     {
       "id": "read-light",
-      "title": "All read \u00b7 Light",
+      "title": "All read · Light",
       "file": "read-light.html",
       "width": 440,
       "height": 430,
@@ -62,7 +110,7 @@
     },
     {
       "id": "read-dark",
-      "title": "All read \u00b7 Dark",
+      "title": "All read · Dark",
       "file": "read-dark.html",
       "width": 440,
       "height": 430,
@@ -70,7 +118,7 @@
     },
     {
       "id": "touch-light",
-      "title": "Touch \u00b7 Light",
+      "title": "Touch · Light",
       "file": "touch-light.html",
       "width": 390,
       "height": 640,
@@ -78,7 +126,7 @@
     },
     {
       "id": "touch-dark",
-      "title": "Touch \u00b7 Dark",
+      "title": "Touch · Dark",
       "file": "touch-dark.html",
       "width": 390,
       "height": 640,

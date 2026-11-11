@@ -94,7 +94,7 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--attention); outl
 
 /* Selected menu follows Paseo's active built-in menu styling. */
 .dot-overlay { --surface:var(--control); --hover:color-mix(in srgb, var(--foreground) 8.64%, var(--surface)); }
-.dot-overlay .popover { width:276px; border-radius:8px; }
+.dot-overlay .popover { width:280px; border-radius:8px; }
 .dot-overlay.touch .popover { width:100%; border-radius:14px 14px 0 0; }
 .dot-overlay .pin-list { gap:0; }
 .dot-overlay .pin-row, .dot-overlay .pin-link { border-radius:8px; }
@@ -103,10 +103,13 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--attention); outl
 .dot-overlay .resource svg { width:16px; height:16px; }
 .dot-overlay .pin-title { font-weight:500; }
 .dot-overlay .pin-row.unread .pin-title { font-weight:var(--unread-weight); }
-.dot-overlay .menu-actions { margin-top:-2px; margin-bottom:var(--menu-inset); }
+.dot-overlay .menu-actions { margin-top:-2px; margin-bottom:var(--menu-inset); padding-bottom:4px; }
 .dot-overlay.touch .menu-actions { margin-top:0; margin-bottom:12px; }
 
 .dot-overlay .ack { border:1px solid transparent; opacity:1; border-radius:8px; }
 .dot-overlay .menu-actions button { border-radius:8px; }
-.dot-overlay .ack:hover, .dot-overlay .ack:focus-visible { background:var(--bg); border-color:var(--border); color:var(--foreground); }
+.dot-overlay { --read-button:color-mix(in srgb, var(--foreground) 18%, var(--surface)); }
+.dot-overlay.dark { --surface:var(--control); --hover:color-mix(in srgb, var(--foreground) 8.64%, var(--surface)); --read-button:var(--bg); }
+.dot-overlay .menu-actions button:hover:not(:disabled) { background:var(--border); }
+.dot-overlay .ack:hover, .dot-overlay .ack:focus-visible { background:var(--read-button); border-color:var(--border); color:var(--foreground); }
 .dot-overlay .ack:focus-visible { border-color:var(--attention); }

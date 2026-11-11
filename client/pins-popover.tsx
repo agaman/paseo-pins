@@ -76,7 +76,13 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
   );
 
   return (
-    <View style={{ width: layout.compact ? "100%" : 252, maxWidth: "100%" }}>
+    <View
+      style={{
+        // Paseo enforces a 280px popover minimum: 2px border + 24px host padding.
+        width: layout.compact ? "100%" : 254,
+        maxWidth: "100%",
+      }}
+    >
       {/* Paint our content through Paseo's padding; the host still owns the outer chrome. */}
       <View
         pointerEvents="none"
@@ -111,6 +117,7 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
               paddingRight: layout.compact ? 16 : 8,
               marginTop: layout.compact ? 0 : -2,
               marginBottom: layout.compact ? 12 : 4,
+              paddingBottom: 4,
               borderBottomWidth: 1,
               borderBottomColor: theme.colors.border,
               zIndex: 1,
@@ -153,7 +160,7 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
           </View>
         )}
         {query.data?.pins.length === 0 && (
-          <Text style={muted}>No pins yet. Ask an agent to pin a useful link.</Text>
+          <Text style={{ ...muted, textAlign: "center", paddingVertical: 12 }}>No pins yet</Text>
         )}
         {query.data?.pins.map((pin) => (
           <PinRow

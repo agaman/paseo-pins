@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { isUnread, type Pin } from "../shared/pins";
 import { pinIcons } from "./pin-icons";
+import { readButtonBackground } from "./theme";
 
 // Match the built-in disabled row’s hover without dimming our active text.
 const hoverOpacity = 0.12 * 0.72;
@@ -182,7 +183,7 @@ export function PinRow({
               borderWidth: 1,
               backgroundColor:
                 ackHovered || focused === "ack" || ackPressed
-                  ? theme.colors.surface1
+                  ? readButtonBackground(theme)
                   : "transparent",
               borderColor:
                 focused === "ack"
