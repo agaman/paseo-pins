@@ -113,3 +113,14 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--attention); outl
 .dot-overlay .menu-actions button:hover:not(:disabled) { background:var(--border); }
 .dot-overlay .ack:hover, .dot-overlay .ack:focus-visible { background:var(--read-button); border-color:var(--border); color:var(--foreground); }
 .dot-overlay .ack:focus-visible { border-color:var(--attention); }
+
+/* Native sheet reference: the host owns the surface and header; rows align to its menu rail. */
+.dot-overlay.touch { --surface:var(--bg); }
+.dot-overlay.touch .popover { padding:8px 4px 4px; }
+.dot-overlay.touch .touch-title { margin:0 8px 12px; font-size:14px; }
+.dot-overlay.touch .menu-actions { margin:0 -4px 4px; padding:0 8px 4px 4px; }
+.dot-overlay.touch .pin-row { border:1px solid transparent; }
+.dot-overlay.touch .resource { width:16px; }
+.dot-overlay.touch .pin-title { font-size:14px; font-weight:400; line-height:18px; }
+.dot-overlay.touch .pin-row.unread .pin-title { font-weight:var(--unread-weight); }
+.dot-overlay.touch .destination { font-size:12px; line-height:16px; }

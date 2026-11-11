@@ -12,12 +12,15 @@ type FailedAcknowledgment = { entries: AcknowledgmentEntries; opened: boolean };
 export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginButtonContentProps) {
   const { query, markRead } = usePins(host.id, workspaceId);
   const touch = useTouchControls();
+  const native = layout.platform !== "web";
+  // Native sheets use surface0; the browser menu uses surface2 even at compact widths.
+  const surface = native && layout.compact ? theme.colors.surface0 : theme.colors.surface2;
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [failed, setFailed] = useState<FailedAcknowledgment | null>(null);
-  const foreground = { color: theme.colors.foreground, fontSize: 13, lineHeight: 18 };
-  const muted = { color: theme.colors.foregroundMuted, fontSize: 13, lineHeight: 18 };
+  const foreground = { color: theme.colors.foreground, fontSize: native ? 14 : 13, lineHeight: 18 };
+  const muted = { ...foreground, color: theme.colors.foregroundMuted };
   const error =
     actionError ??
     (query.isError
@@ -83,25 +86,27 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
         maxWidth: "100%",
       }}
     >
-      {/* Paint our content through Paseo's padding; the host still owns the outer chrome. */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: -16,
-          bottom: -16,
-          left: -12,
-          right: -12,
-          backgroundColor: theme.colors.surface2,
-          borderRadius: layout.compact ? 0 : 8,
-        }}
-      />
-      {/* Four-pixel desktop row inset, matching the built-in menu. */}
+      {/* Desktop popovers need a fill through the inset; compact sheets own their background. */}
+      {!layout.compact && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -16,
+            bottom: -16,
+            left: -12,
+            right: -12,
+            backgroundColor: surface,
+            borderRadius: 8,
+          }}
+        />
+      )}
+      {/* Cancel the host content padding down to the built-in menu's four-pixel row inset. */}
       <View
         style={{
           gap: 0,
-          marginHorizontal: layout.compact ? 0 : -8,
-          marginVertical: layout.compact ? 0 : -12,
+          marginHorizontal: -8,
+          marginVertical: -12,
         }}
       >
         {Boolean(query.data?.pins.length) && (
@@ -112,11 +117,11 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
               justifyContent: "flex-end",
               gap: 4,
               // Extend the divider through the host inset, preserving action alignment.
-              marginHorizontal: layout.compact ? -12 : -4,
-              paddingLeft: layout.compact ? 12 : 4,
-              paddingRight: layout.compact ? 16 : 8,
+              marginHorizontal: -4,
+              paddingLeft: 4,
+              paddingRight: 8,
               marginTop: layout.compact ? 0 : -2,
-              marginBottom: layout.compact ? 12 : 4,
+              marginBottom: 4,
               paddingBottom: 4,
               borderBottomWidth: 1,
               borderBottomColor: theme.colors.border,
@@ -167,6 +172,9 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
             key={pin.key}
             pin={pin}
             theme={theme}
+            compact={layout.compact}
+            native={native}
+            surface={surface}
             touch={touch}
             busy={busy}
             onOpen={() => {

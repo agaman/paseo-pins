@@ -108,3 +108,17 @@ TypeScript and scoped Biome checks pass. Browser-local fixtures verified valid l
 Two independent reviewers checked all changes against `17fa5bb`, including the untracked theme helper and canvas variants. Correctness/regression/architecture and UI/theme/accessibility reviews both found no actionable issues. The public plugin contract specifies hex theme colors, which the helper uses without relying on host internals.
 
 The complete `npm run check` gate passed: lint, formatting, TypeScript, Knip, duplicate detection, and all 23 tests. This completes the comprehensive validation deferred above. The existing composed-route light/dark desktop and touch-emulation checks cover the final implementation; native-device inspection was not performed. No live pin data was changed during validation.
+
+### Mobile menu styling correction
+
+Compact content now inherits the host sheet background instead of painting a desktop surface over it. Native compact notification halos use surface0; browser halos keep surface2 to match that host's menu. Native titles use 14px regular text (semibold when unread), secondary hosts use 12px, and the 16px resource icons align with the built-in menu's label rail. Compact rows use the same 4px outer inset as the reference, and the redundant 12px content padding above the toolbar is removed. The mark-read background calculation uses the actual surrounding surface. Desktop geometry and colors are preserved.
+
+The native styling reference was read from Paseo's public v0.15.2 `components/ui/menu/menu-item.tsx`, `components/adaptive-modal-sheet.tsx`, and plugin content wrapper; no Paseo files were modified. A phone-sized browser alone does **not** reproduce native styles: the native sheet uses surface0, while the browser uses surface2. The initial typography comparison also sampled the browser's default 14px before its saved 13px preference loaded; repeating after settings settled established the stable reference.
+
+Scoped Biome and TypeScript checks passed. Browser-local fixture checks compare both actual menus at 390px in light/dark: label x=37px, matching browser text size, matching sheet/notification-halo color, full-width divider, 4px list insets, 44px actions, wrapped titles, and per-pin/mark-all acknowledgment. Desktop light/dark acknowledgment and subsequent-notification checks also passed. Actual plugin components were additionally rendered with Android layout props in an isolated React Native Web harness: 14px regular titles, surface0 halos, 44px targets, and acknowledgment passed in both themes. Screenshots and scripts are in `/tmp/paseo-pins-qa/mobile-*` and `native-*`; the touch canvas reference is updated. These previews use a browser renderer and mock pin data, not an Android/iOS device. Native-device verification and comprehensive checks remain pending product review.
+
+### Mobile styling commit review
+
+Two independent reviewers inspected the complete five-file diff against `e5d3c96`; correctness/regression/architecture and UI/theme/accessibility reviews reported no actionable findings. The final native touch canvas was also rendered and visually inspected in light/dark, confirming matching surfaces, 14px titles, and no horizontal overflow.
+
+The complete `npm run check` gate passed: lint, formatting, TypeScript, Knip, duplicate detection, and all 23 tests. Comprehensive validation deferred above is complete. Actual Android/iOS device verification remains outstanding; browser and Android-layout previews do not substitute for that coverage.

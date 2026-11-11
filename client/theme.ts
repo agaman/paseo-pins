@@ -10,9 +10,12 @@ function brightness(rgb: number[]) {
   return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
 }
 
-export function readButtonBackground({ colors }: PluginButtonContentProps["theme"]) {
+export function readButtonBackground(
+  { colors }: PluginButtonContentProps["theme"],
+  background = colors.surface2,
+) {
   const foreground = channels(colors.foreground);
-  const surface = channels(colors.surface2);
+  const surface = channels(background);
   // Dark themes use their background surface; light themes use the selected 18% tint.
   if (brightness(foreground) > brightness(surface)) return colors.surface0;
   const mixed = surface.map((channel, index) =>

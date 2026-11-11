@@ -12,6 +12,9 @@ const hoverOpacity = 0.12 * 0.72;
 export function PinRow({
   pin,
   theme,
+  compact,
+  native,
+  surface,
   touch,
   busy,
   onOpen,
@@ -19,6 +22,9 @@ export function PinRow({
 }: {
   pin: Pin;
   theme: PluginButtonContentProps["theme"];
+  compact: boolean;
+  native: boolean;
+  surface: string;
   touch: boolean;
   busy: boolean;
   onOpen(): void;
@@ -51,6 +57,8 @@ export function PinRow({
         flexDirection: "row",
         alignItems: "center",
         borderRadius: 8,
+        borderWidth: compact ? 1 : 0,
+        borderColor: "transparent",
         paddingRight: 4,
         minHeight: touch ? 44 : undefined,
         opacity: busy ? 0.6 : 1,
@@ -94,7 +102,7 @@ export function PinRow({
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           style={{
-            width: 20,
+            width: compact ? 16 : 20,
             height: 24,
             flexShrink: 0,
             alignItems: "center",
@@ -112,7 +120,7 @@ export function PinRow({
                 width: 11,
                 height: 11,
                 borderRadius: 6,
-                backgroundColor: theme.colors.surface2,
+                backgroundColor: surface,
               }}
             >
               {/* Repaint the row behind the dot to mask the icon with a matching halo. */}
@@ -148,16 +156,20 @@ export function PinRow({
           <Text
             style={{
               color: theme.colors.foreground,
-              fontSize: 13,
+              fontSize: native ? 14 : 13,
               lineHeight: 18,
-              fontWeight: unread ? "600" : "500",
+              fontWeight: unread ? "600" : native ? "400" : "500",
             }}
           >
             {pin.title}
           </Text>
           <Text
             numberOfLines={1}
-            style={{ color: theme.colors.foregroundMuted, fontSize: 11, lineHeight: 15 }}
+            style={{
+              color: theme.colors.foregroundMuted,
+              fontSize: native ? 12 : 11,
+              lineHeight: native ? 16 : 15,
+            }}
           >
             {new URL(pin.url).host}
           </Text>
@@ -183,7 +195,7 @@ export function PinRow({
               borderWidth: 1,
               backgroundColor:
                 ackHovered || focused === "ack" || ackPressed
-                  ? readButtonBackground(theme)
+                  ? readButtonBackground(theme, surface)
                   : "transparent",
               borderColor:
                 focused === "ack"
