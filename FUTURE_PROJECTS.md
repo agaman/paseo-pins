@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** planned work only. No implementation is authorized by this document. Each brief needs technical shaping and a working-feature review when picked up; this is not an implementation sequence or a commitment to ship every item.
+**Status:** project 1 has been separately approved and implemented, awaiting working-feature review. Projects 2–10 remain planned work only; this document does not authorize their implementation. Each brief needs technical shaping and a working-feature review when picked up; this is not an implementation sequence or a commitment to ship every item.
 
 ## Project index
 
@@ -27,11 +27,13 @@ Three concepts stay separate: the pin's resource data, whether its latest meanin
 
 **Chat captures a historical reference.** Both summary entries and inline chips retain the title, icon/type, destination, and update identity captured when created. Later pin edits must not silently redirect old messages. Capturing a destination does not archive the web page or file contents behind it.
 
-The following are proposed implementation defaults, rather than additional user decisions: existing pins begin read when notifications are introduced; opening a historical reference acknowledges only its captured update, leaving any newer update unread; section order stays stable and empty sections are hidden; background refresh reports progress and completion in the menu. Confirm these defaults when shaping the relevant project.
+Existing pins beginning read when notifications are introduced is now agreed in the first project's detailed plan. The following remain proposed implementation defaults: opening a historical reference acknowledges only its captured update, leaving any newer update unread; section order stays stable and empty sections are hidden; background refresh reports progress and completion in the menu. Confirm these defaults when shaping the relevant project.
 
 ## 1. Notifications and updates
 
-Show users which pins are new or have changes worth their attention, with a badge on the Pins control and a distinct appearance for unread rows.
+Detailed plan: [Notice new and meaningfully updated pins](plans/01-notifications.md). Agreed first-version refinements: existing pins begin read; unread rows use the selected 7px dot over the top-right of the resource icon and a slightly stronger title; the shared workspace count appears as `Pins (N)` because the installed API has no separate badge field. Per-pin acknowledgment appears on hover/focus and stays visible on touch.
+
+Show users which pins are new or have changes worth their attention, with an unread count on the Pins control and a distinct appearance for unread rows. The first version uses the label `Pins (N)`; a separate badge is deferred.
 
 - New pins start unread. Agents explicitly flag meaningful updates, including changes to content at an unchanged URL. Editing a title, URL, or other field does not itself mark an existing pin unread.
 - Count distinct unread pins in the menu badge. Repeated updates to one unread pin still contribute one; merely opening the menu does not clear the count.
@@ -41,10 +43,10 @@ Show users which pins are new or have changes worth their attention, with a badg
 Illustrative behavior, not a final layout:
 
 ```text
-[ Pins  2 ▾ ]
-  ● Development preview       [Mark as read]
-  ● Review changes            [Mark as read]
-    Project guide
+[ Pins (2) ▾ ]
+  [icon●] Development preview       [Mark as read]
+  [icon●] Review changes            [Mark as read]
+  [icon ] Project guide
   ──────────────────────────────────────────
   Mark all as read
 ```

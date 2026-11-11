@@ -1,0 +1,92 @@
+* { box-sizing: border-box; }
+:root {
+  --row-padding: 4px;
+  --menu-inset: 6px;
+  --dot-size: 5px;
+  --unread-weight: 500;
+  --attention: #488b69;
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --foreground: #18181b;
+  --muted: #71717a;
+  --border: #e7e7ed;
+  --hover: #e4e4e7;
+  --control: #f4f4f5;
+}
+body.dark { --bg:#161a18; --surface:#202522; --foreground:#eeeeee; --muted:#a0a8a3; --border:#343b37; --hover:#343d37; --control:#282f2b; }
+body { margin:0; height:100vh; overflow:hidden; background:var(--bg); color:var(--foreground); font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+button, a { -webkit-tap-highlight-color:transparent; }
+button { font:inherit; color:inherit; cursor:pointer; border:0; background:transparent; }
+svg { display:block; width:14px; height:14px; flex-shrink:0; }
+button:focus-visible, a:focus-visible { outline:2px solid var(--attention); outline-offset:-2px; border-radius:5px; }
+[hidden] { display:none !important; }
+.workspace-header { height:44px; display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--border); }
+.workspace-name { flex:1; color:var(--muted); font-size:12px; }
+.trigger { display:flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:var(--control); color:var(--muted); }
+.trigger svg:last-child { width:12px; }
+.work-area { padding:28px 20px; opacity:.3; }
+.work-area span { display:block; width:100px; height:5px; border-radius:3px; background:var(--border); margin-bottom:14px; }
+.work-area span:nth-child(2) { width:144px; }
+.work-area span:nth-child(3) { width:70px; }
+.popover { position:absolute; top:49px; right:16px; width:344px; max-width:calc(100% - 32px); padding:var(--menu-inset); border:1px solid var(--border); border-radius:9px; background:var(--surface); box-shadow:0 6px 24px #00000012; }
+.pin-list { display:grid; gap:2px; }
+.pin-row { display:flex; align-items:center; border-radius:6px; padding-right:4px; }
+.pin-row:hover, .pin-row:focus-within { background:var(--hover); }
+.pin-link { display:flex; align-items:center; flex:1; min-width:0; gap:6px; padding:var(--row-padding) 4px; color:inherit; text-decoration:none; }
+.dot-slot { width:8px; flex-shrink:0; display:flex; justify-content:center; }
+.dot { width:var(--dot-size); height:var(--dot-size); border-radius:50%; background:var(--attention); visibility:hidden; }
+.pin-row.unread .dot { visibility:visible; }
+.resource { display:flex; width:24px; height:24px; align-items:center; justify-content:center; color:var(--muted); flex-shrink:0; }
+.pin-text { flex:1; min-width:0; }
+.pin-title { display:block; font-size:13px; font-weight:400; line-height:18px; }
+.pin-row.unread .pin-title { font-weight:var(--unread-weight); }
+.destination { display:block; font-size:11px; line-height:15px; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ack-slot { width:26px; flex-shrink:0; display:flex; justify-content:center; }
+.ack { width:26px; height:28px; display:flex; align-items:center; justify-content:center; color:var(--muted); opacity:0; border-radius:5px; }
+.pin-row:hover .ack, .pin-row:focus-within .ack, .touch .ack { opacity:1; }
+.ack:hover, .ack:focus-visible { color:var(--foreground); background:var(--control); }
+.menu-footer { margin-top:6px; padding-top:4px; border-top:1px solid var(--border); }
+.menu-footer button { display:block; text-align:left; width:100%; padding:6px 8px; font-size:12px; color:var(--muted); border-radius:5px; }
+.menu-footer button:hover { color:var(--foreground); background:var(--hover); }
+.error { display:flex; align-items:center; justify-content:space-between; margin:6px 4px 2px; padding:6px; color:var(--foreground); font-size:12px; border:1px solid var(--border); border-radius:5px; }
+.error button { text-decoration:underline; padding:3px; }
+.touch-title, .sheet-handle { display:none; }
+.menu-caption { color:var(--muted); font-size:12px; padding:10px 8px; }
+.menu-entry { display:flex; align-items:center; gap:10px; width:100%; padding:12px 8px; text-align:left; }
+.menu-entry span { flex:1; }
+.menu-entry svg:last-child { transform:rotate(-90deg); }
+.prototype-controls { position:absolute; bottom:0; left:0; right:0; padding:14px 16px 10px; border-top:1px dashed var(--border); background:var(--bg); color:var(--muted); font-size:11px; }
+.controls-heading { font-size:9px; letter-spacing:1.3px; font-weight:600; }
+.prototype-controls p { margin:6px 0 10px; line-height:16px; }
+.controls-buttons { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.controls-buttons button { padding:5px 7px; border:1px solid var(--border); border-radius:5px; font-size:11px; }
+.controls-buttons label { display:flex; align-items:center; gap:3px; font-size:10px; }
+.controls-buttons input { accent-color:var(--attention); }
+.prototype-controls .feedback { margin:8px 0 0; min-height:16px; font-size:10px; }
+.touch .popover { top:165px; right:0; left:0; width:100%; max-width:none; min-height:304px; border-radius:14px 14px 0 0; padding:8px 12px 16px; }
+.touch .sheet-handle { display:block; width:28px; height:4px; border-radius:4px; background:var(--muted); margin:0 auto 8px; opacity:.6; }
+.touch-title { align-items:center; gap:6px; font-size:13px; margin:0 -4px 10px; }
+.touch .touch-title { display:flex; }
+.touch-title button { width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+.touch .pin-link { min-height:44px; }
+.touch .ack-slot { width:44px; }
+.touch .ack { width:44px; height:44px; }
+.touch .menu-footer button { min-height:44px; }
+@media (hover:none) { .ack { opacity:1; } }
+
+/* Alternative dot placements reclaim the leading status column. */
+.dot-right .ack-slot { position:relative; }
+.dot-right .ack-slot > .dot { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; }
+.dot-right .pin-row:hover .dot, .dot-right .pin-row:focus-within .dot { opacity:0; }
+.dot-overlay .resource { position:relative; }
+.dot-overlay .resource > .dot { position:absolute; top:2px; right:2px; width:calc(var(--dot-size) + 2px); height:calc(var(--dot-size) + 2px); box-shadow:0 0 0 2px var(--surface); pointer-events:none; }
+.dot-overlay .pin-row:hover .dot, .dot-overlay .pin-row:focus-within .dot { box-shadow:0 0 0 2px var(--hover); }
+@media (hover:none) { .dot-right .ack-slot > .dot { opacity:0; } }
+
+/* Shared actions sit above the selected list, aligned to the right. */
+.menu-actions { display:flex; justify-content:flex-end; gap:4px; padding-right:4px; margin-bottom:2px; }
+.menu-actions button { display:flex; align-items:center; justify-content:center; width:28px; height:28px; color:var(--muted); border-radius:4px; }
+.menu-actions button:hover:not(:disabled) { background:var(--hover); }
+.menu-actions button:disabled { opacity:.4; cursor:default; }
+.menu-actions svg { width:16px; height:16px; }
+.touch .menu-actions button { width:44px; height:44px; }

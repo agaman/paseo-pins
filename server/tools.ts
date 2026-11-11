@@ -1,6 +1,6 @@
 import { type AgentToolContext, defineAgentTool } from "@getpaseo/plugin/server";
 import { z } from "zod";
-import { applyPinsSchema, pinKeySchema, upsertPinSchema } from "../shared/pins";
+import { applyPinsSchema, pinKeySchema, pinSnapshot, upsertPinSchema } from "../shared/pins";
 import { pinGuidance } from "./guidance";
 import type { PinStore } from "./store";
 
@@ -17,7 +17,7 @@ export function createPinTools(store: PinStore) {
       input: z.object({}).strict(),
       async execute(_, context) {
         const pins = await store.list(workspace(context));
-        return { structuredContent: { pins } };
+        return { structuredContent: pinSnapshot(pins) };
       },
     }),
     defineAgentTool({

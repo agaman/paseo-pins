@@ -3,15 +3,22 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import {
+  type AcknowledgmentEntries,
+  acknowledgmentEntriesSchema,
   applyPinsSchema,
   type Pin,
   type PinBatchInput,
   type PinInput,
   pinDocumentSchema,
+  pinSnapshot,
   workspaceIdSchema,
 } from "../shared/pins";
 
-type UpsertResult = { status: "created" | "updated" | "unchanged"; pin: Pin };
+type UpsertResult = { status: "created" | "updated" | "unchanged"; pin: Pin; notified: boolean };
+type AcknowledgeResult = {
+  key: string;
+  status: "acknowledged" | "already-read" | "stale" | "absent";
+};
 type RemoveResult = { status: "removed"; pin: Pin } | { status: "absent"; key: string };
 
 function checkAborted(signal?: AbortSignal) {
@@ -91,31 +98,70 @@ export class PinStore {
         const index = pins.findIndex((pin) => pin.key === entry.key);
         const previous = pins[index];
         const type = entry.type ?? previous?.type ?? "link";
+        const notified =
+          !previous ||
+          Boolean(entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id));
         if (
+          !notified &&
           previous?.title === entry.title &&
           previous.url === entry.url &&
           previous.type === type
         ) {
-          upsert.push({ status: "unchanged", pin: previous });
+          upsert.push({ status: "unchanged", pin: previous, notified: false });
           continue;
         }
         const timestamp = this.now();
         const pin: Pin = {
-          ...entry,
+          key: entry.key,
+          title: entry.title,
+          url: entry.url,
           type,
           createdAt: previous?.createdAt ?? timestamp,
           updatedAt: timestamp,
+          attention: notified
+            ? {
+                token: randomUUID(),
+                notifiedAt: timestamp,
+                ...(entry.notify?.reason ? { reason: entry.notify.reason } : {}),
+              }
+            : previous.attention,
+          readAttentionToken: previous?.readAttentionToken ?? null,
+          consumedNotificationIds: [
+            ...(previous?.consumedNotificationIds ?? []),
+            ...(notified && entry.notify ? [entry.notify.id] : []),
+          ],
         };
         if (index < 0) pins.push(pin);
         else pins[index] = pin;
-        upsert.push({ status: previous ? "updated" : "created", pin });
+        upsert.push({ status: previous ? "updated" : "created", pin, notified });
       }
       const changed =
         upsert.some((result) => result.status !== "unchanged") ||
         remove.some((result) => result.status === "removed");
       // One atomic rename commits the entire batch; no-op batches never write.
       if (changed) await this.save(workspaceId, pins, signal);
-      return { upsert, remove, pins };
+      return { upsert, remove, ...pinSnapshot(pins) };
+    });
+  }
+
+  acknowledge(workspaceId: string, entries: AcknowledgmentEntries, signal?: AbortSignal) {
+    const values = acknowledgmentEntriesSchema.parse(entries);
+    return this.mutate(workspaceId, async () => {
+      checkAborted(signal);
+      const pins = await this.list(workspaceId);
+      checkAborted(signal);
+      const results: AcknowledgeResult[] = values.map(({ key, attentionToken }) => {
+        const pin = pins.find((entry) => entry.key === key);
+        if (!pin) return { key, status: "absent" };
+        if (pin.attention?.token !== attentionToken) return { key, status: "stale" };
+        if (pin.readAttentionToken === attentionToken) return { key, status: "already-read" };
+        pin.readAttentionToken = attentionToken;
+        return { key, status: "acknowledged" };
+      });
+      if (results.some((result) => result.status === "acknowledged")) {
+        await this.save(workspaceId, pins, signal);
+      }
+      return { results, ...pinSnapshot(pins) };
     });
   }
 
@@ -141,7 +187,7 @@ export class PinStore {
   private async save(workspaceId: string, pins: Pin[], signal?: AbortSignal): Promise<void> {
     const file = this.filePath(workspaceId);
     const temporary = `${file}.${randomUUID()}.tmp`;
-    const document = pinDocumentSchema.parse({ version: 1, workspaceId, pins });
+    const document = pinDocumentSchema.parse({ version: 2, workspaceId, pins });
     try {
       await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
       await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, {

@@ -1,47 +1,79 @@
-import { openExternalUrl, type PluginButtonContentProps, useRpc } from "@getpaseo/plugin/client";
-import { Icon } from "@getpaseo/plugin/client/ui";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { openExternalUrl, type PluginButtonContentProps } from "@getpaseo/plugin/client";
+import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { listPins } from "../shared/pins";
-import { pinIcons } from "./pin-icons";
+import { type AcknowledgmentEntries, isUnread, type Pin } from "../shared/pins";
+import { MenuAction } from "./menu-action";
+import { PinRow } from "./pin-row";
+import { usePins } from "./use-pins";
+import { useTouchControls } from "./web";
 
-export function PinsPopover({ workspaceId, theme, layout, close }: PluginButtonContentProps) {
-  const list = useRpc(listPins);
-  const [opening, setOpening] = useState<string | null>(null);
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [openError, setOpenError] = useState<string | null>(null);
-  const query = useQuery({
-    queryKey: ["pins", workspaceId],
-    queryFn: () => list({ workspaceId }),
-    refetchInterval: 2000,
-    refetchOnMount: "always",
-    retry: false,
-  });
+type FailedAcknowledgment = { entries: AcknowledgmentEntries; opened: boolean };
+
+export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginButtonContentProps) {
+  const { query, markRead } = usePins(host.id, workspaceId);
+  const touch = useTouchControls();
+  const inFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [failed, setFailed] = useState<FailedAcknowledgment | null>(null);
   const foreground = { color: theme.colors.foreground, fontSize: 13, lineHeight: 18 };
   const muted = { color: theme.colors.foregroundMuted, fontSize: 13, lineHeight: 18 };
   const error =
-    openError ??
+    actionError ??
     (query.isError
       ? query.data
         ? "Couldn't refresh pins. Showing the last saved list."
         : "Couldn't load pins."
       : null);
 
-  async function open(key: string, url: string) {
-    if (opening) return;
-    setOpening(key);
-    setOpenError(null);
+  function start() {
+    if (inFlight.current) return false;
+    inFlight.current = true;
+    setBusy(true);
+    setActionError(null);
+    setFailed(null);
+    return true;
+  }
+  function finish() {
+    inFlight.current = false;
+    setBusy(false);
+  }
+  async function acknowledge(entries: AcknowledgmentEntries, opened = false) {
     try {
-      // Invoke directly from the press handler, before any await, for browser popup policies.
-      await openExternalUrl(url);
-      close();
+      await markRead(entries);
+      if (opened) close();
     } catch {
-      setOpenError("Couldn't open that link. Please try again.");
-    } finally {
-      setOpening(null);
+      setFailed({ entries, opened });
+      setActionError(
+        opened ? "Link opened, but couldn't mark it as read." : "Couldn't mark pins as read.",
+      );
     }
   }
+  async function read(entries: AcknowledgmentEntries, opened = false) {
+    if (!start()) return;
+    try {
+      await acknowledge(entries, opened);
+    } finally {
+      finish();
+    }
+  }
+  async function open(pin: Pin) {
+    if (!start()) return;
+    try {
+      // Call from the press handler before awaiting, to preserve the browser's user gesture.
+      await openExternalUrl(pin.url);
+      if (isUnread(pin) && pin.attention) {
+        await acknowledge([{ key: pin.key, attentionToken: pin.attention.token }], true);
+      } else close();
+    } catch {
+      setActionError("Couldn't open that link. Please try again.");
+    } finally {
+      finish();
+    }
+  }
+  const unreadEntries = (query.data?.pins ?? []).flatMap((pin) =>
+    isUnread(pin) && pin.attention ? [{ key: pin.key, attentionToken: pin.attention.token }] : [],
+  );
 
   return (
     <View style={{ width: layout.compact ? "100%" : 320, maxWidth: "100%" }}>
@@ -53,17 +85,45 @@ export function PinsPopover({ workspaceId, theme, layout, close }: PluginButtonC
           marginVertical: layout.compact ? 0 : -10,
         }}
       >
+        {Boolean(query.data?.pins.length) && (
+          <View
+            testID="pins-actions"
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              gap: 4,
+              paddingRight: 4,
+              zIndex: 1,
+            }}
+          >
+            <MenuAction
+              icon="ListChecks"
+              label="Mark all pins as read"
+              tooltip="Mark as read"
+              theme={theme}
+              touch={touch}
+              disabled={busy || unreadEntries.length === 0}
+              busy={busy}
+              onPress={() => {
+                void read(unreadEntries);
+              }}
+            />
+          </View>
+        )}
         {query.isPending && <Text style={muted}>Loading pins…</Text>}
         {error && (
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 8, padding: 4 }}>
             <Text accessibilityRole="alert" style={foreground}>
               {error}
             </Text>
-            {query.isError && (
+            {(failed || query.isError) && (
               <Pressable
                 accessibilityRole="button"
+                disabled={busy}
+                accessibilityState={{ disabled: busy }}
                 onPress={() => {
-                  void query.refetch();
+                  if (failed) void read(failed.entries, failed.opened);
+                  else void query.refetch();
                 }}
                 style={{ paddingVertical: 8 }}
               >
@@ -76,55 +136,20 @@ export function PinsPopover({ workspaceId, theme, layout, close }: PluginButtonC
           <Text style={muted}>No pins yet. Ask an agent to pin a useful link.</Text>
         )}
         {query.data?.pins.map((pin) => (
-          <Pressable
+          <PinRow
             key={pin.key}
-            accessibilityRole="link"
-            accessibilityLabel={`${pin.title}. Opens in your browser. ${pin.url}`}
-            accessibilityState={{ disabled: opening !== null, busy: opening === pin.key }}
-            disabled={opening !== null}
-            onHoverIn={() => setHovered(pin.key)}
-            onHoverOut={() => setHovered((key) => (key === pin.key ? null : key))}
-            onPress={() => {
-              void open(pin.key, pin.url);
+            pin={pin}
+            theme={theme}
+            touch={touch}
+            compact={layout.compact}
+            busy={busy}
+            onOpen={() => {
+              void open(pin);
             }}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              paddingVertical: 4,
-              paddingHorizontal: 4,
-              gap: 8,
-              borderRadius: 6,
-              backgroundColor:
-                pressed || (opening === null && hovered === pin.key)
-                  ? theme.colors.border
-                  : "transparent",
-              opacity: opening === pin.key ? 0.6 : 1,
-            })}
-          >
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={{
-                width: 24,
-                height: 24,
-                flexShrink: 0,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon
-                name={pinIcons[pin.type ?? "link"]}
-                size={14}
-                color={theme.colors.foregroundMuted}
-              />
-            </View>
-            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <Text style={foreground}>{pin.title}</Text>
-              <Text numberOfLines={1} style={{ ...muted, fontSize: 11, lineHeight: 15 }}>
-                {new URL(pin.url).host}
-              </Text>
-            </View>
-          </Pressable>
+            onRead={() => {
+              if (pin.attention) void read([{ key: pin.key, attentionToken: pin.attention.token }]);
+            }}
+          />
         ))}
       </View>
     </View>

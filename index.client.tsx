@@ -1,4 +1,9 @@
-import type { PluginButtonRegistration, PluginClientContext } from "@getpaseo/plugin/client";
+import type {
+  PluginButtonIconProps,
+  PluginButtonRegistration,
+  PluginClientContext,
+} from "@getpaseo/plugin/client";
+import { PinsHeader } from "./client/pins-header";
 import { PinsPopover } from "./client/pins-popover";
 
 export default function contribute(client: PluginClientContext) {
@@ -13,6 +18,17 @@ export default function contribute(client: PluginClientContext) {
     if (lifetime.signal.aborted) return;
     if (workspace.archivingAt) return remove(workspace.id);
     if (registrations.has(workspace.id)) return;
+    let lastLabel = "Pins";
+    const onCount = (count: number) => {
+      const label = count > 0 ? `Pins (${count})` : "Pins";
+      if (label === lastLabel) return;
+      lastLabel = label;
+      registrations.get(workspace.id)?.update({ label, title: label });
+    };
+    // biome-ignore lint/correctness/noComponentHookFactories: Created once per workspace registration, outside React rendering; identity stays stable across updates.
+    const HeaderIcon = (props: PluginButtonIconProps) => (
+      <PinsHeader {...props} onCount={onCount} />
+    );
     registrations.set(
       workspace.id,
       client.addHeaderButton({
@@ -21,7 +37,7 @@ export default function contribute(client: PluginClientContext) {
         button: {
           title: "Pins",
           label: "Pins",
-          icon: "Pin",
+          icon: HeaderIcon,
           behavior: { kind: "popover", Content: PinsPopover },
         },
       }),

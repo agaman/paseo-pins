@@ -7,7 +7,7 @@ import type { AgentToolContext } from "@getpaseo/plugin/server";
 import { pinGuidance, withPinGuidance } from "../server/guidance.ts";
 import { PinStore } from "../server/store.ts";
 import { createPinTools } from "../server/tools.ts";
-import { pinUrlSchema, upsertPinSchema } from "../shared/pins.ts";
+import { isUnread, pinSnapshot, pinUrlSchema, upsertPinSchema } from "../shared/pins.ts";
 
 const preview = {
   key: "dev-preview",
@@ -146,7 +146,7 @@ test("corrupt or mismatched data is preserved on reads and mutations", async (t)
   await mkdir(path.dirname(file), { recursive: true });
   for (const original of [
     "{broken",
-    JSON.stringify({ version: 2, workspaceId: "a", pins: [] }),
+    JSON.stringify({ version: 99, workspaceId: "a", pins: [] }),
     JSON.stringify({ version: 1, workspaceId: "b", pins: [] }),
   ]) {
     await writeFile(file, original);
@@ -331,18 +331,35 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
   await run("pins_upsert", { ...preview, title: "Updated" });
   assert.equal((await store.list("a"))[0]?.title, "Updated");
   assert.equal((await store.list("a"))[0]?.type, "app");
-  assert.deepEqual((await run("pins_list", {}, "b")).structuredContent, { pins: [] });
+  assert.deepEqual((await run("pins_list", {}, "b")).structuredContent, {
+    pins: [],
+    unreadCount: 0,
+  });
   await assert.rejects(async () => run("pins_list", {}, null), /require a Paseo workspace/);
   assert.throws(() => run("pins_upsert", { ...preview, workspaceId: "b" }));
   await run("pins_remove", { key: preview.key });
-  assert.deepEqual((await run("pins_list", {})).structuredContent, { pins: [] });
+  assert.deepEqual((await run("pins_list", {})).structuredContent, { pins: [], unreadCount: 0 });
   const batch = await run("pins_apply", { upsert: [preview], remove: ["absent"] });
   assert.deepEqual(batch.structuredContent, {
-    upsert: [{ status: "created", pin: (await store.list("a"))[0] }],
+    upsert: [{ status: "created", notified: true, pin: (await store.list("a"))[0] }],
     remove: [{ status: "absent", key: "absent" }],
-    pins: await store.list("a"),
+    ...pinSnapshot(await store.list("a")),
   });
   assert.deepEqual(await store.list("b"), []);
+  const attention = { ...preview, notify: { id: "tool-event", reason: "Ready to review" } };
+  const notified = await run("pins_upsert", attention);
+  assert.deepEqual(notified.structuredContent, {
+    status: "updated",
+    notified: true,
+    pin: (await store.list("a"))[0],
+  });
+  const repeated = await run("pins_upsert", attention);
+  assert.deepEqual(repeated.structuredContent, {
+    status: "unchanged",
+    notified: false,
+    pin: (await store.list("a"))[0],
+  });
+  assert.ok(!tools.some((tool) => tool.name.includes("acknowledge")));
   assert.throws(() => run("pins_apply", { remove: [preview.key], workspaceId: "b" }));
   await assert.rejects(
     async () => run("pins_apply", { remove: [preview.key] }, null),
@@ -358,4 +375,209 @@ test("new-agent instructions preserve the existing prompt and append once", () =
   assert.ok(combined.includes(pinGuidance));
   assert.equal(withPinGuidance(combined), combined);
   assert.ok(withPinGuidance().includes(pinGuidance));
+  const upgraded = withPinGuidance(
+    "Existing instructions.\n\n[paseo-pins guidance v1]\nOld guidance\n[/paseo-pins guidance]",
+  );
+  assert.ok(upgraded.startsWith("Existing instructions."));
+  assert.ok(upgraded.includes(pinGuidance));
+  assert.ok(!upgraded.includes("Old guidance"));
+});
+
+test("legacy pins start read, migrate lazily, and preserve resource timestamps", async (t) => {
+  const { store } = await fixture(t);
+  const file = store.filePath("a");
+  await mkdir(path.dirname(file), { recursive: true });
+  const timestamp = "2026-11-10T00:00:00.000Z";
+  const old = { ...preview, type: "app", createdAt: timestamp, updatedAt: timestamp };
+  const source = JSON.stringify({ version: 1, workspaceId: "a", pins: [old] });
+  await writeFile(file, source);
+  const pins = await store.list("a");
+  assert.equal(pinSnapshot(pins).unreadCount, 0);
+  assert.equal(pins[0]?.attention, null);
+  assert.equal(await readFile(file, "utf8"), source);
+  assert.equal((await store.upsert("a", preview)).status, "unchanged");
+  assert.equal(await readFile(file, "utf8"), source);
+  await store.upsert("a", { ...preview, key: "new-pin" });
+  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 2);
+  assert.deepEqual((await store.list("a"))[0], {
+    ...old,
+    attention: null,
+    readAttentionToken: null,
+    consumedNotificationIds: [],
+  });
+});
+
+function acknowledgment(pin: Awaited<ReturnType<PinStore["upsert"]>>["pin"]) {
+  assert.ok(pin.attention);
+  return { key: pin.key, attentionToken: pin.attention.token };
+}
+
+test("meaningful events notify once, including retries after acknowledgment and newer events", async (t) => {
+  const { store, directory } = await fixture(t);
+  const first = await store.upsert("a", { ...preview, notify: { id: "build-a", reason: "Ready" } });
+  assert.equal(first.notified, true);
+  assert.equal(isUnread(first.pin), true);
+  assert.equal(first.pin.attention?.reason, "Ready");
+  assert.equal("notify" in first.pin, false);
+  const ack = await store.acknowledge("a", [acknowledgment(first.pin)]);
+  assert.equal(ack.unreadCount, 0);
+  assert.equal(ack.pins[0]?.updatedAt, first.pin.updatedAt);
+  const retry = await store.upsert("a", { ...preview, notify: { id: "build-a" } });
+  assert.equal(retry.status, "unchanged");
+  assert.equal(retry.notified, false);
+  const routine = await store.upsert("a", {
+    ...preview,
+    url: "https://example.com/new",
+    type: "docs",
+  });
+  assert.equal(routine.notified, false);
+  assert.equal(isUnread(routine.pin), false);
+  const next = await store.upsert("a", {
+    ...preview,
+    url: routine.pin.url,
+    notify: { id: "build-b" },
+  });
+  assert.equal(next.status, "updated");
+  assert.equal(next.notified, true);
+  const oldEvent = await store.upsert("a", {
+    ...preview,
+    url: routine.pin.url,
+    notify: { id: "build-a" },
+  });
+  assert.equal(oldEvent.notified, false);
+  assert.deepEqual(oldEvent.pin.attention, next.pin.attention);
+  assert.equal(pinSnapshot(await store.list("a")).unreadCount, 1);
+  await store.acknowledge("a", [acknowledgment(next.pin)]);
+  const reopened = new PinStore(directory);
+  t.after(() => reopened.close());
+  assert.equal(isUnread((await reopened.list("a"))[0]), false);
+  assert.equal(
+    (await reopened.upsert("a", { ...preview, notify: { id: "build-a" } })).notified,
+    false,
+  );
+});
+
+test("snapshot acknowledgments cannot clear concurrent updates or recreated keys", async (t) => {
+  const { store } = await fixture(t);
+  const first = await store.upsert("a", preview);
+  const second = await store.upsert("a", { ...preview, key: "other" });
+  const entries = [acknowledgment(first.pin), acknowledgment(second.pin)];
+  const newer = store.upsert("a", { ...preview, notify: { id: "newer" } });
+  const marked = store.acknowledge("a", entries);
+  const extra = store.upsert("a", { ...preview, key: "unrelated" });
+  await Promise.all([newer, marked, extra]);
+  assert.deepEqual(
+    (await marked).results.map((result) => result.status),
+    ["stale", "acknowledged"],
+  );
+  assert.equal((await marked).unreadCount, 1);
+  const repeated = await store.acknowledge("a", entries);
+  assert.deepEqual(
+    repeated.results.map((result) => result.status),
+    ["stale", "already-read"],
+  );
+  assert.equal(repeated.unreadCount, 2);
+  assert.equal(repeated.pins[1]?.updatedAt, second.pin.updatedAt);
+  await store.remove("a", preview.key);
+  assert.equal((await store.acknowledge("a", [entries[0]])).results[0]?.status, "absent");
+  const recreated = await store.upsert("a", preview);
+  assert.notEqual(recreated.pin.attention?.token, first.pin.attention?.token);
+  assert.equal((await store.acknowledge("a", [entries[0]])).results[0]?.status, "stale");
+  const retained = (await store.list("a")).find((pin) => pin.key === preview.key);
+  assert.ok(retained);
+  assert.equal(isUnread(retained), true);
+  assert.equal(
+    (await store.acknowledge("b", [acknowledgment(recreated.pin)])).results[0]?.status,
+    "absent",
+  );
+});
+
+test("failed notifications and acknowledgments preserve state and do not consume event IDs", async (t) => {
+  const { store } = await fixture(t);
+  const first = await store.upsert("a", preview);
+  const file = store.filePath("a");
+  const original = await readFile(file, "utf8");
+  const entry = acknowledgment(first.pin);
+  const update = { ...preview, notify: { id: "retry-me" } };
+  const canceled = new AbortController();
+  canceled.abort();
+  await assert.rejects(store.upsert("a", update, canceled.signal), /canceled/);
+  await assert.rejects(store.acknowledge("a", [entry], canceled.signal), /canceled/);
+  await assert.rejects(async () => store.acknowledge("a", [entry, entry]));
+  await assert.rejects(async () => store.acknowledge("a", []));
+  await assert.rejects(async () =>
+    store.acknowledge("a", [{ ...entry, attentionToken: "invalid" }]),
+  );
+  await chmod(path.dirname(file), 0o500);
+  try {
+    await assert.rejects(store.upsert("a", update), /Could not save/);
+    await assert.rejects(store.acknowledge("a", [entry]), /Could not save/);
+    assert.equal(await readFile(file, "utf8"), original);
+  } finally {
+    await chmod(path.dirname(file), 0o700);
+  }
+  assert.equal((await store.upsert("a", update)).notified, true);
+});
+
+test("v2 metadata is strict and malformed documents remain untouched", async (t) => {
+  const { store } = await fixture(t);
+  const { pin } = await store.upsert("a", preview);
+  const file = store.filePath("a");
+  for (const fields of [
+    { attention: { token: "bad", notifiedAt: pin.updatedAt } },
+    { attention: undefined },
+    { readAttentionToken: undefined },
+    { consumedNotificationIds: ["same", "same"] },
+    { notify: { id: "unapplied" } },
+  ]) {
+    const source = JSON.stringify({ version: 2, workspaceId: "a", pins: [{ ...pin, ...fields }] });
+    await writeFile(file, source);
+    await assert.rejects(store.list("a"), /preserved/);
+    await assert.rejects(store.upsert("a", preview), /preserved/);
+    assert.equal(await readFile(file, "utf8"), source);
+  }
+});
+
+test("notification inputs are bounded, cannot acknowledge, and batch statuses include attention", async (t) => {
+  const { store } = await fixture(t);
+  for (const notify of [
+    { id: " " },
+    { id: "x".repeat(129) },
+    { id: "a", reason: "" },
+    { id: "a", reason: "x".repeat(241) },
+    { id: "a", read: true },
+  ]) {
+    assert.equal(upsertPinSchema.safeParse({ ...preview, notify }).success, false);
+  }
+  assert.equal(upsertPinSchema.safeParse({ ...preview, readAttentionToken: null }).success, false);
+  const first = await store.upsert("a", preview);
+  const result = await store.apply("a", {
+    upsert: [
+      { ...preview, notify: { id: " update " } },
+      { ...preview, key: "new" },
+    ],
+  });
+  assert.deepEqual(
+    result.upsert.map(({ status, notified }) => ({ status, notified })),
+    [
+      { status: "updated", notified: true },
+      { status: "created", notified: true },
+    ],
+  );
+  assert.equal(result.unreadCount, 2);
+  assert.notEqual(result.pins[0]?.attention?.token, first.pin.attention?.token);
+  assert.deepEqual(result.pins[0]?.consumedNotificationIds, ["update"]);
+  assert.equal((await store.apply("a", { remove: [preview.key] })).unreadCount, 1);
+});
+
+test("mark all accepts more than 100 displayed pins", async (t) => {
+  const { store } = await fixture(t);
+  await store.apply("a", {
+    upsert: Array.from({ length: 100 }, (_, i) => ({ ...preview, key: `pin-${i}` })),
+  });
+  await store.upsert("a", preview);
+  const entries = (await store.list("a")).map(acknowledgment);
+  const result = await store.acknowledge("a", entries);
+  assert.equal(result.results.length, 101);
+  assert.equal(result.unreadCount, 0);
 });

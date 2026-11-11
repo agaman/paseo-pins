@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "title": "Pins \u00b7 Notifications",
+  "kind": "prototype",
+  "description": "Selected design: 7px unread dot over the top-right of the resource icon, with no leading status column. Interactive acknowledgment and count states.",
+  "artboards": [
+    {
+      "id": "dot-overlay-light",
+      "title": "Selected \u00b7 Light",
+      "file": "dot-overlay-light.html",
+      "width": 440,
+      "height": 430,
+      "group": "Selected design"
+    },
+    {
+      "id": "dot-overlay-dark",
+      "title": "Selected \u00b7 Dark",
+      "file": "dot-overlay-dark.html",
+      "width": 440,
+      "height": 430,
+      "group": "Selected design"
+    },
+    {
+      "id": "unread-light",
+      "title": "Left dot \u00b7 Light",
+      "file": "unread-light.html",
+      "width": 440,
+      "height": 430,
+      "group": "Earlier alternatives"
+    },
+    {
+      "id": "dot-right-light",
+      "title": "Right dot \u00b7 Light",
+      "file": "dot-right-light.html",
+      "width": 440,
+      "height": 430,
+      "group": "Earlier alternatives"
+    },
+    {
+      "id": "unread-dark",
+      "title": "Left dot \u00b7 Dark",
+      "file": "unread-dark.html",
+      "width": 440,
+      "height": 430,
+      "group": "Earlier alternatives"
+    },
+    {
+      "id": "dot-right-dark",
+      "title": "Right dot \u00b7 Dark",
+      "file": "dot-right-dark.html",
+      "width": 440,
+      "height": 430,
+      "group": "Earlier alternatives"
+    },
+    {
+      "id": "read-light",
+      "title": "All read \u00b7 Light",
+      "file": "read-light.html",
+      "width": 440,
+      "height": 430,
+      "group": "Acknowledged"
+    },
+    {
+      "id": "read-dark",
+      "title": "All read \u00b7 Dark",
+      "file": "read-dark.html",
+      "width": 440,
+      "height": 430,
+      "group": "Acknowledged"
+    },
+    {
+      "id": "touch-light",
+      "title": "Touch \u00b7 Light",
+      "file": "touch-light.html",
+      "width": 390,
+      "height": 640,
+      "group": "Touch"
+    },
+    {
+      "id": "touch-dark",
+      "title": "Touch \u00b7 Dark",
+      "file": "touch-dark.html",
+      "width": 390,
+      "height": 640,
+      "group": "Touch"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "row-padding",
+      "label": "Row padding",
+      "var": "--row-padding",
+      "type": "range",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "id": "menu-inset",
+      "label": "Menu inset",
+      "var": "--menu-inset",
+      "type": "range",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "id": "dot-size",
+      "label": "Unread dot",
+      "var": "--dot-size",
+      "type": "range",
+      "min": 3,
+      "max": 7,
+      "step": 1,
+      "unit": "px",
+      "default": 5
+    },
+    {
+      "id": "unread-weight",
+      "label": "Unread title weight",
+      "var": "--unread-weight",
+      "type": "select",
+      "options": [
+        {
+          "label": "Medium",
+          "value": "500"
+        },
+        {
+          "label": "Semibold",
+          "value": "600"
+        }
+      ],
+      "default": "500"
+    }
+  ]
+}

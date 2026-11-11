@@ -38,6 +38,16 @@ export const upsertPinSchema = z
       .describe(
         "Resource kind: app for development/staging/deployed apps; review for changes to review; docs for reference/guides; example for demos/code examples; artifact for reports/deliverables; link for anything else. Omit to preserve an existing type, or default a new pin to link. The plugin chooses the icon.",
       ),
+    notify: z
+      .object({
+        id: z.string().trim().min(1).max(128),
+        reason: z.string().trim().min(1).max(240).optional(),
+      })
+      .strict()
+      .optional()
+      .describe(
+        "Flag a meaningful update for the user. Reuse the same id when retrying one event; choose a new id for a new event. Routine edits should omit notify. New pins always notify.",
+      ),
   })
   .strict();
 
@@ -72,17 +82,31 @@ export const applyPinsSchema = z
   });
 export type PinBatchInput = z.infer<typeof applyPinsSchema>;
 
-const pinSchema = upsertPinSchema.extend({
+const resourceSchema = upsertPinSchema.omit({ notify: true }).extend({
   type: pinTypeSchema.default("link"),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
+const pinSchema = resourceSchema.extend({
+  attention: z
+    .object({
+      token: z.uuid(),
+      notifiedAt: z.iso.datetime(),
+      reason: z.string().trim().min(1).max(240).optional(),
+    })
+    .strict()
+    .nullable(),
+  readAttentionToken: z.uuid().nullable(),
+  consumedNotificationIds: z
+    .array(z.string().trim().min(1).max(128))
+    .refine((ids) => new Set(ids).size === ids.length, "Duplicate notification IDs."),
+});
 export type Pin = z.infer<typeof pinSchema>;
 export type PinInput = z.infer<typeof upsertPinSchema>;
 
-export const pinDocumentSchema = z
+const documentSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     workspaceId: workspaceIdSchema,
     pins: z
       .array(pinSchema)
@@ -93,8 +117,71 @@ export const pinDocumentSchema = z
   })
   .strict();
 
+export const pinDocumentSchema = z.union([
+  documentSchema,
+  documentSchema
+    .extend({ version: z.literal(1), pins: z.array(resourceSchema) })
+    .transform(
+      (document): z.input<typeof documentSchema> => ({
+        ...document,
+        version: 2 as const,
+        pins: document.pins.map((pin) => ({
+          ...pin,
+          attention: null,
+          readAttentionToken: null,
+          consumedNotificationIds: [],
+        })),
+      }),
+    )
+    .pipe(documentSchema),
+]);
+
+export function isUnread(pin: Pin): boolean {
+  return pin.attention !== null && pin.attention.token !== pin.readAttentionToken;
+}
+
+export function pinSnapshot(pins: Pin[]) {
+  return { pins, unreadCount: pins.filter(isUnread).length };
+}
+
+const snapshotSchema = z.object({
+  pins: z.array(pinSchema),
+  unreadCount: z.number().int().nonnegative(),
+});
+
+export const acknowledgmentEntriesSchema = z
+  .array(
+    z
+      .object({
+        key: pinKeySchema,
+        attentionToken: z.uuid(),
+      })
+      .strict(),
+  )
+  .min(1)
+  .refine(
+    (entries) => new Set(entries.map((entry) => entry.key)).size === entries.length,
+    "Duplicate acknowledgment keys.",
+  );
+export type AcknowledgmentEntries = z.infer<typeof acknowledgmentEntriesSchema>;
+
+export const acknowledgePins = defineRpc({
+  name: "pins.acknowledge",
+  input: z
+    .object({ workspaceId: workspaceIdSchema, entries: acknowledgmentEntriesSchema })
+    .strict(),
+  output: snapshotSchema.extend({
+    results: z.array(
+      z.object({
+        key: pinKeySchema,
+        status: z.enum(["acknowledged", "already-read", "stale", "absent"]),
+      }),
+    ),
+  }),
+});
+
 export const listPins = defineRpc({
   name: "pins.list",
   input: z.object({ workspaceId: workspaceIdSchema }).strict(),
-  output: z.object({ pins: z.array(pinSchema) }),
+  output: snapshotSchema,
 });

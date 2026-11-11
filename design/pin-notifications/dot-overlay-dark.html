@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Icon badge · dark</title><link rel="stylesheet" href="prototype.css"><link rel="stylesheet" href="tweaks.css"></head>
+<body class="dark unread dot-overlay" data-mode="unread">
+<header class="workspace-header" data-dc-id="workspace-controls"><span class="workspace-name" data-dc-id="workspace-name">paseo-pins</span><button class="trigger" data-trigger data-dc-id="pins-trigger" aria-expanded="true" aria-controls="popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M5 17h14v-2l-3-3V5l1-1V3H7v1l1 1v7l-3 3z"/></svg><span data-count>Pins (2)</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></header>
+<div class="work-area" aria-hidden="true"><span></span><span></span><span></span></div>
+<section class="popover" id="popover" data-dc-id="pins-popover" aria-label="Workspace pins">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="workspace-menu" hidden data-dc-id="workspace-menu"><div class="menu-caption">Workspace actions</div><button class="menu-entry" data-forward data-dc-id="pins-menu-entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M5 17h14v-2l-3-3V5l1-1V3H7v1l1 1v7l-3 3z"/></svg><span data-count>Pins (2)</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+  <div class="menu-content">
+    <div class="touch-title" data-dc-id="sheet-navigation"><button data-back aria-label="Back to workspace actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span>Pins</span></div>
+    <div class="menu-actions" data-dc-id="acknowledgment-footer"><button data-all data-dc-id="mark-all-read" aria-label="Mark all pins as read" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4M13 18h8M3 5l2 2 4-4M13 6h8"/></svg></button></div>
+    <div class="pin-list" data-dc-id="pin-list"><div class="pin-row unread" data-key="preview" data-initial-unread="true" data-dc-id="preview-row">
+  <a class="pin-link" href="https://preview.example.test" data-open="preview" data-dc-id="preview-link" aria-label="Development preview, unread. Opens in your browser.">
+    
+    <span class="resource" data-dc-id="preview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span aria-hidden="true" class="dot" data-dc-id="preview-unread-dot"></span></span>
+    <span class="pin-text"><span class="pin-title" data-dc-id="preview-title">Development preview</span><span class="destination" data-dc-id="preview-destination">preview.example.test</span></span>
+  </a>
+  <span class="ack-slot"><button class="ack" data-ack="preview" data-dc-id="preview-acknowledge" aria-label="Mark Development preview as read" title="Mark as read" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></span>
+</div><div class="pin-row unread" data-key="review" data-initial-unread="true" data-dc-id="review-row">
+  <a class="pin-link" href="https://github.com/getpaseo/paseo/pulls" data-open="review" data-dc-id="review-link" aria-label="Review changes, unread. Opens in your browser.">
+    
+    <span class="resource" data-dc-id="review-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="3" r="2"/><path d="M6 5v14M18 6a4 4 0 0 0-4-4m4 4v13"/><circle cx="6" cy="21" r="2"/><circle cx="18" cy="21" r="2"/></svg><span aria-hidden="true" class="dot" data-dc-id="review-unread-dot"></span></span>
+    <span class="pin-text"><span class="pin-title" data-dc-id="review-title">Review changes</span><span class="destination" data-dc-id="review-destination">github.com</span></span>
+  </a>
+  <span class="ack-slot"><button class="ack" data-ack="review" data-dc-id="review-acknowledge" aria-label="Mark Review changes as read" title="Mark as read" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></span>
+</div><div class="pin-row" data-key="guide" data-initial-unread="false" data-dc-id="guide-row">
+  <a class="pin-link" href="https://paseo.sh/docs/plugins" data-open="guide" data-dc-id="guide-link" aria-label="Plugin guide. Opens in your browser.">
+    
+    <span class="resource" data-dc-id="guide-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3z"/></svg><span aria-hidden="true" class="dot" data-dc-id="guide-unread-dot"></span></span>
+    <span class="pin-text"><span class="pin-title" data-dc-id="guide-title">Plugin guide</span><span class="destination" data-dc-id="guide-destination">paseo.sh</span></span>
+  </a>
+  <span class="ack-slot"><button class="ack" data-ack="guide" data-dc-id="guide-acknowledge" aria-label="Mark Plugin guide as read" title="Mark as read" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></span>
+</div></div>
+    <div class="error" role="alert" data-dc-id="acknowledgment-error" hidden><span>Couldn’t mark as read.</span><button data-retry>Retry</button></div>
+  </div>
+</section>
+<aside class="prototype-controls" aria-label="Prototype controls" data-dc-id="prototype-controls"><div class="controls-heading">PROTOTYPE</div><p data-dc-id="prototype-help">The unread dot sits on the icon. Hover or tab to acknowledge.</p><div class="controls-buttons"><button data-update data-dc-id="simulate-update">New update</button><button data-reset data-dc-id="reset-demo">Reset</button><label><input type="checkbox" data-failure> Fail next acknowledgment</label></div><p class="feedback" role="status" aria-live="polite" data-feedback>Sample links only. No live pins are changed.</p></aside>
+<script src="prototype.js"></script></body></html>
