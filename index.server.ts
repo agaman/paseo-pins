@@ -7,7 +7,7 @@ import { createRefreshTools } from "./server/refresh-tools";
 import { dataDirectory, PinStore } from "./server/store";
 import { createPinTools } from "./server/tools";
 import { PinTurns } from "./server/turns";
-import { acknowledgePins, listPins } from "./shared/pins";
+import { acknowledgePins, listPins, setPinKept } from "./shared/pins";
 import {
   cancelRefresh,
   listRefreshProfiles,
@@ -57,6 +57,9 @@ export default function contribute(server: PluginServerContext) {
     refresh.connect(paseo);
     return store.snapshot(workspaceId);
   });
+  server.handle(setPinKept, ({ workspaceId, key, instanceId, kept }) =>
+    store.setKept(workspaceId, key, instanceId, kept),
+  );
   server.handle(acknowledgePins, ({ workspaceId, entries }) =>
     store.acknowledge(workspaceId, entries),
   );

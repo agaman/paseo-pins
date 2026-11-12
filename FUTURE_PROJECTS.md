@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Project 7 (sections) is implemented for working-feature review; comprehensive validation remains pending approval. Project 5 (agent-powered refresh) is implemented for working-feature review; comprehensive validation remains pending approval. Projects 4, 6, and 8–10 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
+**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Projects 5 (agent-powered refresh) and 7 (sections) are implemented and committed. Project 10 (Keep) is implemented, including user-owned removal protection, shared workspace state, and separate acknowledgment controls. Projects 4, 6, 8, and 9 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
 
 ## Project index
 
@@ -148,6 +148,8 @@ Help users identify unavailable or expired resources while retaining the pins fo
 **Technical shaping:** choose timeouts/cache lifetime, expiry metadata, and where checks run. A daemon-only failure must not be represented as proof that a link is inaccessible from the user's device.
 
 ## 10. Keep this pin
+
+Selected design: **Pins · Keep**. An outlined pin becomes filled when kept, appears on row hover/focus, and stays available on touch. Kept indicators remain visible at rest. Keep stays beside the title; acknowledgment sits beside the update message. Pins retain their section and position.
 
 Give users a **Keep** control that prevents agents from pruning a resource they still need.
 

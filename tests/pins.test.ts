@@ -433,10 +433,11 @@ test("legacy pins start read, migrate lazily, and preserve resource timestamps",
   assert.equal((await store.upsert("a", preview)).status, "unchanged");
   assert.equal(await readFile(file, "utf8"), source);
   await store.upsert("a", { ...preview, key: "new-pin" });
-  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 5);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 6);
   assert.deepEqual((await store.list("a"))[0], {
     ...old,
     instanceId: `legacy:${old.key}:${old.createdAt}`,
+    kept: false,
     section: null,
     attention: null,
     readAttentionToken: null,

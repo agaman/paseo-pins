@@ -124,9 +124,10 @@ test("v4 migration preserves pins/history and adds no refresh run", async (t) =>
   const store = await fixture(t);
   const doc = await store.document("a");
   const { refresh: _refresh, ...old } = doc;
-  await writeFile(store.filePath("a"), JSON.stringify({ ...old, version: 4 }));
+  const oldPins = old.pins.map(({ kept: _kept, ...pin }) => pin);
+  await writeFile(store.filePath("a"), JSON.stringify({ ...old, pins: oldPins, version: 4 }));
   const loaded = await store.document("a");
-  assert.equal(loaded.version, 5);
+  assert.equal(loaded.version, 6);
   assert.equal(loaded.refresh, null);
   assert.deepEqual(loaded.pins, doc.pins);
   assert.throws(() => pinDocumentSchema.parse({ ...old, version: 6 }));
@@ -407,4 +408,19 @@ test("context access verifies workspace membership, excludes reasoning, bounds o
   );
   assert.equal(reads, 1);
   assert.equal((await store.document("a")).refresh?.contextIssues.length, 1);
+});
+
+test("refresh respects Keep after rereading and preserves the entire rejected batch", async (t) => {
+  const store = await fixture(t);
+  const current = (await store.list("a"))[0];
+  const staleRevision = pinRevision(current);
+  await store.setKept("a", current.key, current.instanceId, true);
+  const batch = (expectedRevision: string) => ({
+    operationId: "remove-kept",
+    remove: [{ key: current.key, expectedRevision, reason: "Obsolete" }],
+  });
+  await assert.rejects(apply(store, batch(staleRevision)), /changed/);
+  const before = await store.document("a");
+  await assert.rejects(apply(store, batch(await revision(store))), /kept/);
+  assert.deepEqual(await store.document("a"), before);
 });

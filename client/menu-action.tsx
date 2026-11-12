@@ -1,7 +1,7 @@
 import type { PluginButtonContentProps } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useActionTooltip } from "./use-action-tooltip";
 
 export function MenuAction({
   icon,
@@ -24,9 +24,8 @@ export function MenuAction({
   expanded?: boolean;
   onPress(): void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const showTooltip = (!touch && hovered) || focused;
+  const tip = useActionTooltip(touch, disabled);
+  const { hovered, focused, showTooltip } = tip;
   const size = touch ? 44 : 24;
   return (
     <View style={{ position: "relative", zIndex: showTooltip ? 1 : 0 }}>
@@ -35,11 +34,14 @@ export function MenuAction({
         accessibilityLabel={label}
         accessibilityState={{ disabled, busy, expanded }}
         disabled={disabled}
-        onHoverIn={() => setHovered(true)}
-        onHoverOut={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onPress={onPress}
+        onHoverIn={tip.onHoverIn}
+        onHoverOut={tip.onHoverOut}
+        onFocus={tip.onFocus}
+        onBlur={tip.onBlur}
+        onPress={() => {
+          tip.dismiss();
+          onPress();
+        }}
         style={({ pressed }) => ({
           width: size,
           height: size,
@@ -57,6 +59,7 @@ export function MenuAction({
       </Pressable>
       {showTooltip && (
         <View
+          testID="menu-action-tooltip"
           pointerEvents="none"
           style={{
             position: "absolute",

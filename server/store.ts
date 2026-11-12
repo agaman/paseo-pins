@@ -71,7 +71,7 @@ export class PinStore {
       text = await readFile(file, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return { version: 5, workspaceId, pins: [], sections: [], summaries: [], refresh: null };
+        return { version: 6, workspaceId, pins: [], sections: [], summaries: [], refresh: null };
       throw new Error("Could not read workspace pins.", { cause: error });
     }
     try {
@@ -154,6 +154,10 @@ export class PinStore {
     checkAborted(signal);
     const remove: RemoveResult[] = (value.remove ?? []).map((key) => {
       const pin = previousPins.find((entry) => entry.key === key);
+      if (pin?.kept)
+        throw new Error(
+          `Pin ${key} is kept by the user and cannot be removed. The batch was not applied.`,
+        );
       return pin ? { status: "removed", pin } : { status: "absent", key };
     });
     const sectionResults = applySections(document, value);
@@ -192,6 +196,7 @@ export class PinStore {
       const pin: Pin = {
         key: entry.key,
         instanceId: previous?.instanceId ?? randomUUID(),
+        kept: previous?.kept ?? false,
         title: entry.title,
         url: entry.url,
         type,
@@ -229,6 +234,29 @@ export class PinStore {
       changed,
       result: { upsert, remove, sectionResults, ...pinSnapshot(pins, document.sections) },
     };
+  }
+
+  setKept(
+    workspaceId: string,
+    key: string,
+    instanceId: string,
+    kept: boolean,
+    signal?: AbortSignal,
+  ) {
+    return this.mutate(workspaceId, async () => {
+      checkAborted(signal);
+      const document = await this.document(workspaceId);
+      const pin = document.pins.find(
+        (entry) => entry.key === key && entry.instanceId === instanceId,
+      );
+      if (!pin)
+        throw new Error("This pin was removed or replaced. Refresh the list and try again.");
+      if (pin.kept !== kept) {
+        pin.kept = kept;
+        await this.save(document, signal);
+      }
+      return pinSnapshot(document.pins, document.sections);
+    });
   }
 
   acknowledge(workspaceId: string, entries: AcknowledgmentEntries, signal?: AbortSignal) {

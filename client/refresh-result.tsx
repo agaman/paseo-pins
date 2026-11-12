@@ -1,11 +1,13 @@
 import type { PluginButtonContentProps } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, Pressable, Text, View } from "react-native";
 import { type RefreshView, refreshHasError, refreshTitle } from "../shared/refresh";
 import { MenuAction } from "./menu-action";
 
 const dismissed = new Set<string>();
+const viewed = new Set<string>();
+const minimumViewMs = 3000;
 export function RefreshResult({
   run,
   hostId,
@@ -28,7 +30,32 @@ export function RefreshResult({
   const key = `${hostId}:${workspaceId}:${run.id}`;
   const active = !run.outcome;
   const hasError = refreshHasError(run);
-  if (!active && (hidden || dismissed.has(key))) return null;
+  const autoDismiss =
+    run.state === "finished" &&
+    !run.cleanupPending &&
+    (run.outcome === "completed" || run.outcome === "partial");
+  const invisible = hidden || dismissed.has(key) || (autoDismiss && viewed.has(key));
+  useEffect(() => {
+    if (!autoDismiss || invisible) return;
+    // The host mounts popover content only while it is open. Count foreground
+    // viewing time, then dismiss on close; never hide a result while reading it.
+    let elapsed = 0;
+    let since = AppState.currentState === "active" ? Date.now() : null;
+    const accumulate = () => {
+      if (since !== null) elapsed += Math.max(0, Date.now() - since);
+      since = null;
+    };
+    const subscription = AppState.addEventListener("change", (state) => {
+      accumulate();
+      if (state === "active") since = Date.now();
+    });
+    return () => {
+      subscription.remove();
+      accumulate();
+      if (elapsed >= minimumViewMs) viewed.add(key);
+    };
+  }, [key, autoDismiss, invisible]);
+  if (!active && invisible) return null;
   const text = { fontSize: 12, lineHeight: 17, color: theme.colors.foregroundMuted };
   const title = (
     <Text style={{ ...text, color: theme.colors.foreground, flexShrink: 1 }}>

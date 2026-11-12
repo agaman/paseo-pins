@@ -20,7 +20,7 @@ export function PinsPopover({
   close,
   openSettings,
 }: PluginButtonContentProps & { openSettings: () => void }) {
-  const { query, markRead } = usePins(host.id, workspaceId);
+  const { query, markRead, setKept } = usePins(host.id, workspaceId);
   const refresh = useRefresh(host.id, workspaceId);
   const run = refresh.query.data?.run;
   const refreshing = Boolean(run && (!run.outcome || run.cleanupPending));
@@ -91,9 +91,22 @@ export function PinsPopover({
       finish();
     }
   }
+  async function toggleKeep(pin: Pin) {
+    if (!start()) return;
+    try {
+      await setKept(pin.key, pin.instanceId, !pin.kept);
+    } catch {
+      setActionError("Couldn't change Keep. Refresh the list and try again.");
+      void query.refetch();
+    } finally {
+      finish();
+    }
+  }
   const unreadEntries = (query.data?.pins ?? []).flatMap((pin) =>
     isUnread(pin) && pin.attention ? [{ key: pin.key, attentionToken: pin.attention.token }] : [],
   );
+
+  const groups = groupPins(query.data?.pins ?? [], query.data?.sections ?? []);
 
   return (
     <View
@@ -127,7 +140,7 @@ export function PinsPopover({
               paddingBottom: 4,
               borderBottomWidth: 1,
               borderBottomColor: theme.colors.border,
-              zIndex: 1,
+              zIndex: groups.length + 2,
             }}
           >
             <MenuAction
@@ -158,18 +171,20 @@ export function PinsPopover({
           </View>
         }
         {run && (
-          <RefreshResult
-            key={run.id}
-            run={run}
-            hostId={host.id}
-            workspaceId={workspaceId}
-            theme={theme}
-            touch={touch}
-            busy={refresh.busy}
-            cancel={() => {
-              void refresh.act(run.id);
-            }}
-          />
+          <View style={{ zIndex: groups.length + 1 }}>
+            <RefreshResult
+              key={run.id}
+              run={run}
+              hostId={host.id}
+              workspaceId={workspaceId}
+              theme={theme}
+              touch={touch}
+              busy={refresh.busy}
+              cancel={() => {
+                void refresh.act(run.id);
+              }}
+            />
+          </View>
         )}
         {(refresh.error || refresh.query.isError) && (
           <View style={{ padding: 8, gap: 5 }}>
@@ -206,10 +221,12 @@ export function PinsPopover({
         {query.data?.pins.length === 0 && (
           <Text style={{ ...muted, textAlign: "center", paddingVertical: 12 }}>No pins yet</Text>
         )}
-        {groupPins(query.data?.pins ?? [], query.data?.sections ?? []).map((group, index) => (
+        {groups.map((group, index) => (
           <View
             key={group.section ? `section:${group.section.key}` : "unsectioned"}
-            style={
+            style={[
+              // Downward tooltips must paint above later sections and their dividers.
+              { zIndex: groups.length - index },
               index > 0
                 ? {
                     marginTop: 5,
@@ -219,8 +236,8 @@ export function PinsPopover({
                     paddingHorizontal: 4,
                     paddingTop: 2,
                   }
-                : undefined
-            }
+                : undefined,
+            ]}
           >
             {group.section && (
               <Text
@@ -250,6 +267,9 @@ export function PinsPopover({
                 busy={busy}
                 onOpen={() => {
                   void open(pin);
+                }}
+                onKeep={() => {
+                  void toggleKeep(pin);
                 }}
                 onRead={() => {
                   if (pin.attention)

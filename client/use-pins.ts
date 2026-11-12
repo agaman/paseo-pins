@@ -1,10 +1,11 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type AcknowledgmentEntries, acknowledgePins, listPins } from "../shared/pins";
+import { type AcknowledgmentEntries, acknowledgePins, listPins, setPinKept } from "../shared/pins";
 
 export function usePins(hostId: string, workspaceId: string) {
   const list = useRpc(listPins);
   const acknowledge = useRpc(acknowledgePins);
+  const keep = useRpc(setPinKept);
   const cache = useQueryClient();
   const queryKey = ["pins", hostId, workspaceId];
   const query = useQuery({
@@ -33,5 +34,13 @@ export function usePins(hostId: string, workspaceId: string) {
     void cache.invalidateQueries({ queryKey });
   }
 
-  return { query, markRead };
+  async function setKept(key: string, instanceId: string, kept: boolean) {
+    await cache.cancelQueries({ queryKey });
+    const result = await keep({ workspaceId, key, instanceId, kept });
+    await cache.cancelQueries({ queryKey });
+    cache.setQueryData(queryKey, result);
+    void cache.invalidateQueries({ queryKey });
+  }
+
+  return { query, markRead, setKept };
 }

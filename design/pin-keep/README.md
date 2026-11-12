@@ -1,0 +1,7 @@
+# Keep design exploration
+
+Help users retain useful resources while agents maintain the list. Keep prevents removal only; title and destination edits remain allowed. Pins stay in their current position and section when toggled. Agents may still reorganize sections.
+
+Agreed: controls appear on row hover or keyboard focus, and remain available on touch. Selected direction: a pin icon, outlined when not kept and filled when kept. Desktop and mobile artboards reflect this choice; shield and explicit-label artboards remain as earlier alternatives. Kept indicators remain visible at rest. The outline/filled comparison shows the same hovered row in each state. Mark as read sits to the right of the update message, while Keep stays at the right of the resource header. Notification dots and acknowledgment remain independent. Keep state is shared across the workspace, consistent with existing pin state.
+
+The prototype only changes local page state. It neither mutates real pins nor starts refresh. The pin-icon direction and message-level acknowledgment are implemented. The plugin enforces user-only protection changes and rejects a batch containing a protected removal atomically, including refresh operations. Regression coverage includes persistence, migration, refresh conflicts, and tooltip ownership; desktop and mobile browser previews cover the interactions. Native-device verification remains outstanding.

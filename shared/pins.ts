@@ -143,7 +143,8 @@ const pinSchema = resourceSchema.extend({
 });
 const v3PinSchema = pinSchema.extend({ instanceId: pinInstanceIdSchema });
 const currentPinSchema = v3PinSchema.extend({ section: pinKeySchema.nullable() });
-export type Pin = z.infer<typeof currentPinSchema>;
+const keptPinSchema = currentPinSchema.extend({ kept: z.boolean() });
+export type Pin = z.infer<typeof keptPinSchema>;
 
 export const summaryEntrySchema = z
   .object({
@@ -298,7 +299,7 @@ const v5DocumentSchema = z
       ),
     "Unknown section in stored pins.",
   );
-export const pinDocumentSchema = z.union([
+const v5CompatibleSchema = z.union([
   v5DocumentSchema,
   v4CompatibleSchema
     .transform(
@@ -309,6 +310,40 @@ export const pinDocumentSchema = z.union([
       }),
     )
     .pipe(v5DocumentSchema),
+]);
+const v6DocumentSchema = z
+  .object({
+    ...v5DocumentSchema.shape,
+    version: z.literal(6),
+    pins: z
+      .array(keptPinSchema)
+      .refine(
+        (pins) =>
+          new Set(pins.map((p) => p.key)).size === pins.length &&
+          new Set(pins.map((p) => p.instanceId)).size === pins.length,
+        "Duplicate pin identity.",
+      ),
+  })
+  .strict()
+  .refine(
+    (document) =>
+      document.pins.every(
+        (pin) =>
+          pin.section === null || document.sections.some((section) => section.key === pin.section),
+      ),
+    "Unknown section in stored pins.",
+  );
+export const pinDocumentSchema = z.union([
+  v6DocumentSchema,
+  v5CompatibleSchema
+    .transform(
+      (document): z.input<typeof v6DocumentSchema> => ({
+        ...document,
+        version: 6 as const,
+        pins: document.pins.map((pin) => ({ ...pin, kept: false })),
+      }),
+    )
+    .pipe(v6DocumentSchema),
 ]);
 export type PinDocument = z.infer<typeof pinDocumentSchema>;
 
@@ -322,7 +357,7 @@ export function pinSnapshot(pins: Pin[], sections: PinSection[] = []) {
 
 const snapshotSchema = z.object({
   sections: z.array(pinSectionSchema),
-  pins: z.array(currentPinSchema),
+  pins: z.array(keptPinSchema),
   unreadCount: z.number().int().nonnegative(),
 });
 
@@ -360,5 +395,18 @@ export const acknowledgePins = defineRpc({
 export const listPins = defineRpc({
   name: "pins.list",
   input: z.object({ workspaceId: workspaceIdSchema }).strict(),
+  output: snapshotSchema,
+});
+
+export const setPinKept = defineRpc({
+  name: "pins.keep",
+  input: z
+    .object({
+      workspaceId: workspaceIdSchema,
+      key: pinKeySchema,
+      instanceId: pinInstanceIdSchema,
+      kept: z.boolean(),
+    })
+    .strict(),
   output: snapshotSchema,
 });

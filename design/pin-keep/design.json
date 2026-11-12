@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "title": "Pins \u00b7 Keep",
+  "kind": "prototype",
+  "description": "Compare outlined and filled Keep pins. Acknowledgment sits beside its update message, separate from the resource-level Keep action.",
+  "artboards": [
+    {
+      "id": "outline",
+      "title": "Outline \u00b7 Not kept",
+      "file": "outline.html",
+      "width": 380,
+      "height": 650,
+      "group": "Outline versus filled"
+    },
+    {
+      "id": "filled",
+      "title": "Filled \u00b7 Kept",
+      "file": "filled.html",
+      "width": 380,
+      "height": 650,
+      "group": "Outline versus filled"
+    },
+    {
+      "id": "bookmark",
+      "title": "Pin toggle \u00b7 Desktop",
+      "file": "bookmark.html",
+      "width": 380,
+      "height": 620,
+      "group": "Selected direction"
+    },
+    {
+      "id": "mobile-light",
+      "title": "Pin toggle \u00b7 Mobile light",
+      "file": "mobile-light.html",
+      "width": 390,
+      "height": 760,
+      "group": "Selected direction"
+    },
+    {
+      "id": "mobile-dark",
+      "title": "Pin toggle \u00b7 Mobile dark",
+      "file": "mobile-dark.html",
+      "width": 390,
+      "height": 760,
+      "group": "Selected direction"
+    },
+    {
+      "id": "shield",
+      "title": "B \u00b7 Shield toggle",
+      "file": "shield.html",
+      "width": 380,
+      "height": 620,
+      "group": "Earlier alternatives"
+    },
+    {
+      "id": "label",
+      "title": "C \u00b7 Explicit Kept label",
+      "file": "label.html",
+      "width": 380,
+      "height": 620,
+      "group": "Earlier alternatives"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "row-radius",
+      "label": "Row corner radius",
+      "var": "--row-radius",
+      "type": "range",
+      "min": 4,
+      "max": 12,
+      "step": 1,
+      "unit": "px",
+      "default": 8
+    }
+  ]
+}
