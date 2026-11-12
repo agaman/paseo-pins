@@ -3,5 +3,6 @@ export const pinSelectionGuidance = `Discover what matters before looking for de
 - Good: a specific pull request awaiting the user's review. Poor: a repository homepage added simply because the repository exists.
 - Good: the staging environment for the current release. Poor: every environment mentioned in old conversations.
 - Good: specific documentation needed for the active task. Poor: generic framework documentation collected from a README.
+- Good: a design preview or job-results page needed to review ongoing work. Poor: every design iteration or historical job run.
 - Good: the current report or demo the agent produced. Poor: superseded drafts kept alongside their replacement.
-These examples are contextual, not a ban on particular kinds of links. A homepage or documentation link can be useful when the conversation establishes why the user needs it. Prefer a small set of directly useful resources; do not add links merely to fill the list.`;
+These examples are contextual, not a ban on particular kinds of links. A homepage or documentation link can be useful when the conversation establishes why the user needs it. Prefer useful durable destinations and specific review routes when they help. Use URLs accessible from the user's intended device; localhost can be appropriate on that same machine, but a remote daemon's localhost is not the user's device. Temporary unavailability or a stopped resource alone is not evidence of obsolescence. Prefer a small set of directly useful resources; do not add links merely to fill the list.`;
