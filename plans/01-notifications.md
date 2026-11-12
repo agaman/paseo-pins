@@ -14,11 +14,11 @@ Help the user identify workspace resources that need attention without making ro
 
 ## Experience and boundaries
 
-New pins and explicitly flagged updates get a 7px unread dot over the top-right of the resource icon and a slightly stronger title. No leading status column or extra left indent is added. Everything else keeps the current compact presentation, ordering, resource icons, destination text, and hover treatment.
+Explicitly flagged updates to existing pins get a 7px unread dot over the top-right of the resource icon and a slightly stronger title. No leading status column or extra left indent is added. Everything else keeps the current compact presentation, ordering, resource icons, destination text, and hover treatment.
 
 Agreed behavior:
 
-- Existing pins start **read** when this feature is introduced. Newly created pins always start **unread**.
+- Existing pins start **read** when this feature is introduced. Newly created pins start **read** (revised during chat-summary implementation).
 - Agents decide whether an existing pin has a meaningful update. Changing its URL, title, or type alone does not notify; an update at an unchanged URL can notify.
 - Count distinct unread pins, not update events. Updating the same unread pin repeatedly still counts as one. Removing an unread pin removes its contribution to the count.
 - Opening a pin acknowledges the update the user opened. Merely opening the menu does not acknowledge anything.
@@ -61,11 +61,11 @@ Extend the existing `pins_upsert` input and each `pins_apply.upsert` entry with 
 }
 ```
 
-`notify.id` is a nonempty, trimmed string of at most 128 characters identifying one meaningful event for that pin. Agents reuse it when retrying the same event and choose a fresh ID for a new event. A build/revision identifier or another stable event token is suitable. Optional `reason` is nonempty when supplied, trimmed, and limited to 240 characters. Store and return it for future summaries; this project does not add another text line to the menu.
+`notify.id` is a nonempty, trimmed string of at most 128 characters identifying one meaningful event for that pin. Agents reuse it when retrying the same event and choose a fresh ID for a new event. A build/revision identifier or another stable event token is suitable. Required `reason` is nonempty, trimmed, and limited to 240 characters. Store and return it for future summaries; the selected inline-message design adds the message below the domain beside a 2px theme-accent line while unread. Acknowledgment hides the message in the menu; chat retains it as history.
 
 | Operation | Attention behavior |
 | --- | --- |
-| Create, with or without `notify` | Create one unread update. If supplied, consume the notification ID as part of that same update. |
+| Create, with or without `notify` | Create a read pin. Ignore any supplied notification, but consume its ID so retries remain silent. |
 | Edit existing pin without `notify` | Preserve its current attention and read state. |
 | Existing pin, previously unseen notification ID | Create a new unread update, even if all resource fields are unchanged. |
 | Previously consumed notification ID | Do not generate another unread update or replace the original update reason. Apply any ordinary resource edits using existing semantics. |
@@ -75,7 +75,7 @@ Retain the existing `created`, `updated`, and `unchanged` operation statuses. An
 
 Validate notification input alongside all other batch input before any mutation. Notification changes commit atomically with resource edits/removals. A failed write must not consume an event ID or report a notification. Keep the existing optional-type behavior and all single/batch guarantees.
 
-Update the tool descriptions and new-agent guidance: new pins notify automatically; use `notify` only for meaningful changes; reuse its ID on retries; prefer batches for multiple changes. Distinguish the agent's event ID from the server-issued acknowledgment token below.
+Update the tool descriptions and new-agent guidance: new pins start read; use `notify` only for meaningful changes to existing pins; reuse its ID on retries; prefer batches for multiple changes. Distinguish the agent's event ID from the server-issued acknowledgment token below.
 
 ## Persistence and acknowledgment
 

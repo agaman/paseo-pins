@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import {
@@ -8,11 +8,15 @@ import {
   applyPinsSchema,
   type Pin,
   type PinBatchInput,
+  type PinDocument,
   type PinInput,
   pinDocumentSchema,
   pinSnapshot,
+  type TurnSummary,
   workspaceIdSchema,
 } from "../shared/pins";
+import { summaryEntryUnread } from "../shared/summaries";
+import { recordChanges, type TurnIdentity } from "./summary-records";
 
 type UpsertResult = { status: "created" | "updated" | "unchanged"; pin: Pin; notified: boolean };
 type AcknowledgeResult = {
@@ -51,18 +55,23 @@ export class PinStore {
   }
 
   async list(workspaceId: string): Promise<Pin[]> {
+    return (await this.document(workspaceId)).pins;
+  }
+
+  private async document(workspaceId: string): Promise<PinDocument> {
     const file = this.filePath(workspaceId);
     let text: string;
     try {
       text = await readFile(file, "utf8");
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        return { version: 3, workspaceId, pins: [], summaries: [] };
       throw new Error("Could not read workspace pins.", { cause: error });
     }
     try {
       const document = pinDocumentSchema.parse(JSON.parse(text));
       if (document.workspaceId !== workspaceId) throw new Error("Workspace ID mismatch.");
-      return document.pins;
+      return document;
     } catch (error) {
       throw new Error(
         "Stored pins are invalid or from an unsupported version. The file has been preserved.",
@@ -71,21 +80,33 @@ export class PinStore {
     }
   }
 
-  upsert(workspaceId: string, input: PinInput, signal?: AbortSignal) {
-    return this.apply(workspaceId, { upsert: [input] }, signal).then((result) => result.upsert[0]);
+  upsert(workspaceId: string, input: PinInput, signal?: AbortSignal, turn?: TurnIdentity) {
+    return this.apply(workspaceId, { upsert: [input] }, signal, turn).then(
+      (result) => result.upsert[0],
+    );
   }
 
-  remove(workspaceId: string, key: string, signal?: AbortSignal) {
-    return this.apply(workspaceId, { remove: [key] }, signal).then((result) => result.remove[0]);
+  remove(workspaceId: string, key: string, signal?: AbortSignal, turn?: TurnIdentity) {
+    return this.apply(workspaceId, { remove: [key] }, signal, turn).then(
+      (result) => result.remove[0],
+    );
   }
 
-  apply(workspaceId: string, input: PinBatchInput, signal?: AbortSignal) {
+  apply(workspaceId: string, input: PinBatchInput, signal?: AbortSignal, turn?: TurnIdentity) {
     // Validate every operation before entering the workspace's mutation queue.
     const value = applyPinsSchema.parse(input);
     return this.mutate(workspaceId, async () => {
       checkAborted(signal);
       // Read inside the queue so changes from other agents are retained.
-      const previousPins = await this.list(workspaceId);
+      const document = await this.document(workspaceId);
+      const previousPins = document.pins;
+      if (
+        turn &&
+        document.summaries.some(
+          (s) => s.agentId === turn.agentId && s.turnId === turn.turnId && s.endedAt,
+        )
+      )
+        throw new Error("This turn has ended. Retry in a new turn.");
       checkAborted(signal);
       const remove: RemoveResult[] = (value.remove ?? []).map((key) => {
         const pin = previousPins.find((entry) => entry.key === key);
@@ -98,9 +119,9 @@ export class PinStore {
         const index = pins.findIndex((pin) => pin.key === entry.key);
         const previous = pins[index];
         const type = entry.type ?? previous?.type ?? "link";
-        const notified =
-          !previous ||
-          Boolean(entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id));
+        const notified = Boolean(
+          previous && entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id),
+        );
         if (
           !notified &&
           previous?.title === entry.title &&
@@ -113,6 +134,7 @@ export class PinStore {
         const timestamp = this.now();
         const pin: Pin = {
           key: entry.key,
+          instanceId: previous?.instanceId ?? randomUUID(),
           title: entry.title,
           url: entry.url,
           type,
@@ -124,11 +146,13 @@ export class PinStore {
                 notifiedAt: timestamp,
                 ...(entry.notify?.reason ? { reason: entry.notify.reason } : {}),
               }
-            : previous.attention,
+            : (previous?.attention ?? null),
           readAttentionToken: previous?.readAttentionToken ?? null,
           consumedNotificationIds: [
             ...(previous?.consumedNotificationIds ?? []),
-            ...(notified && entry.notify ? [entry.notify.id] : []),
+            // Consume a creation-time notification ID without notifying: retrying the
+            // same create request must not turn it into a new update.
+            ...((!previous || notified) && entry.notify ? [entry.notify.id] : []),
           ],
         };
         if (index < 0) pins.push(pin);
@@ -139,7 +163,11 @@ export class PinStore {
         upsert.some((result) => result.status !== "unchanged") ||
         remove.some((result) => result.status === "removed");
       // One atomic rename commits the entire batch; no-op batches never write.
-      if (changed) await this.save(workspaceId, pins, signal);
+      if (changed) {
+        document.pins = pins;
+        if (turn) recordChanges(document, turn, upsert);
+        await this.save(document, signal);
+      }
       return { upsert, remove, ...pinSnapshot(pins) };
     });
   }
@@ -148,7 +176,8 @@ export class PinStore {
     const values = acknowledgmentEntriesSchema.parse(entries);
     return this.mutate(workspaceId, async () => {
       checkAborted(signal);
-      const pins = await this.list(workspaceId);
+      const document = await this.document(workspaceId);
+      const pins = document.pins;
       checkAborted(signal);
       const results: AcknowledgeResult[] = values.map(({ key, attentionToken }) => {
         const pin = pins.find((entry) => entry.key === key);
@@ -159,10 +188,104 @@ export class PinStore {
         return { key, status: "acknowledged" };
       });
       if (results.some((result) => result.status === "acknowledged")) {
-        await this.save(workspaceId, pins, signal);
+        await this.save(document, signal);
       }
       return { results, ...pinSnapshot(pins) };
     });
+  }
+
+  async summaries(workspaceId: string) {
+    return (await this.document(workspaceId)).summaries;
+  }
+
+  async summary(workspaceId: string, agentId: string, id: string) {
+    const document = await this.document(workspaceId);
+    const summary = this.findSummary(document, agentId, id);
+    return {
+      ...summary,
+      unreadCount: summary.entries.filter((entry) => summaryEntryUnread(entry, document.pins))
+        .length,
+    };
+  }
+
+  acknowledgeSummary(workspaceId: string, agentId: string, id: string) {
+    return this.mutate(workspaceId, async () => {
+      const document = await this.document(workspaceId);
+      const summary = this.findSummary(document, agentId, id);
+      let acknowledged = 0;
+      for (const entry of summary.entries) {
+        if (!summaryEntryUnread(entry, document.pins)) continue;
+        const pin = document.pins.find((pin) => pin.instanceId === entry.instanceId);
+        if (pin) {
+          pin.readAttentionToken = entry.attentionToken;
+          acknowledged++;
+        }
+      }
+      if (acknowledged) await this.save(document);
+      return { acknowledged };
+    });
+  }
+
+  finalize(
+    workspaceId: string,
+    agentId: string,
+    turnId: string,
+    outcome: "completed" | "interrupted",
+  ) {
+    return this.mutate(workspaceId, async () => {
+      const document = await this.document(workspaceId);
+      const summary = document.summaries.find((s) => s.agentId === agentId && s.turnId === turnId);
+      if (!summary || summary.endedAt) return summary;
+      summary.entries = summary.entries.filter((entry) =>
+        document.pins.some((pin) => pin.instanceId === entry.instanceId),
+      );
+      summary.endedAt = this.now();
+      summary.outcome = outcome;
+      await this.save(document);
+      return summary;
+    });
+  }
+
+  markPublication(
+    workspaceId: string,
+    id: string,
+    state: { recovered?: boolean; published?: boolean },
+  ) {
+    return this.mutate(workspaceId, async () => {
+      const document = await this.document(workspaceId);
+      const summary = document.summaries.find((s) => s.id === id);
+      if (!summary?.endedAt) throw new Error("Summary has not been finalized.");
+      Object.assign(summary, state);
+      await this.save(document);
+    });
+  }
+
+  async workspacesWithSummaries(): Promise<string[]> {
+    let files: string[];
+    try {
+      files = await readdir(path.join(this.directory, "workspaces"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
+    const ids: string[] = [];
+    for (const file of files.filter((file) => /^[a-f0-9]{64}\.json$/.test(file))) {
+      try {
+        const document = pinDocumentSchema.parse(
+          JSON.parse(await readFile(path.join(this.directory, "workspaces", file), "utf8")),
+        );
+        if (document.summaries.length) ids.push(document.workspaceId);
+      } catch (error) {
+        console.error("Pins summary recovery skipped an unreadable document", file, error);
+      }
+    }
+    return ids;
+  }
+
+  private findSummary(document: PinDocument, agentId: string, id: string): TurnSummary {
+    const summary = document.summaries.find((s) => s.id === id && s.agentId === agentId);
+    if (!summary?.endedAt || !summary.outcome) throw new Error("Pin summary is unavailable.");
+    return summary;
   }
 
   async close(): Promise<void> {
@@ -184,10 +307,10 @@ export class PinStore {
     return next;
   }
 
-  private async save(workspaceId: string, pins: Pin[], signal?: AbortSignal): Promise<void> {
-    const file = this.filePath(workspaceId);
+  private async save(input: PinDocument, signal?: AbortSignal): Promise<void> {
+    const file = this.filePath(input.workspaceId);
     const temporary = `${file}.${randomUUID()}.tmp`;
-    const document = pinDocumentSchema.parse({ version: 2, workspaceId, pins });
+    const document = pinDocumentSchema.parse(input);
     try {
       await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
       await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, {

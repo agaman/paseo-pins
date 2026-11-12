@@ -5,8 +5,16 @@ import type {
 } from "@getpaseo/plugin/client";
 import { PinsHeader } from "./client/pins-header";
 import { PinsPopover } from "./client/pins-popover";
+import { TurnSummary } from "./client/turn-summary";
+import { summaryReferenceSchema } from "./shared/summaries";
 
 export default function contribute(client: PluginClientContext) {
+  const removeRenderer = client.addTimelineRenderer({
+    kind: "turn-summary",
+    version: 1,
+    schema: summaryReferenceSchema,
+    Component: TurnSummary,
+  });
   const registrations = new Map<string, PluginButtonRegistration>();
   const lifetime = new AbortController();
   let release: (() => void) | undefined;
@@ -76,6 +84,7 @@ export default function contribute(client: PluginClientContext) {
     });
 
   return () => {
+    removeRenderer();
     lifetime.abort();
     release?.();
     for (const id of registrations.keys()) remove(id);

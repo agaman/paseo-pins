@@ -3,11 +3,9 @@ import { Icon } from "@getpaseo/plugin/client/ui";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { isUnread, type Pin } from "../shared/pins";
-import { pinIcons } from "./pin-icons";
+import { PinIcon, rowHoverOpacity } from "./pin-icon";
+import { PinMessage } from "./pin-message";
 import { readButtonBackground } from "./theme";
-
-// Match the built-in disabled row’s hover without dimming our active text.
-const hoverOpacity = 0.12 * 0.72;
 
 export function PinRow({
   pin,
@@ -35,6 +33,7 @@ export function PinRow({
   const [focused, setFocused] = useState<"link" | "ack" | null>(null);
   const [pressed, setPressed] = useState(false);
   const unread = isUnread(pin);
+  const message = unread ? pin.attention?.reason : undefined;
   const active =
     hovered || focused === "link" || (unread && (ackHovered || focused === "ack")) || pressed;
   useEffect(() => {
@@ -75,14 +74,14 @@ export function PinRow({
             right: 0,
             borderRadius: 8,
             backgroundColor: theme.colors.foreground,
-            opacity: hoverOpacity,
+            opacity: rowHoverOpacity,
           }}
         />
       )}
       <Pressable
         {...events}
         accessibilityRole="link"
-        accessibilityLabel={`${pin.title}.${unread ? " Unread." : ""} Opens in your browser. ${pin.url}`}
+        accessibilityLabel={`${pin.title}.${unread ? " Unread." : ""}${message ? ` ${message}` : ""} Opens in your browser. ${pin.url}`}
         accessibilityState={{ disabled: busy }}
         disabled={busy}
         onFocus={() => setFocused("link")}
@@ -91,67 +90,22 @@ export function PinRow({
           flex: 1,
           minWidth: 0,
           flexDirection: "row",
-          alignItems: "center",
+          alignItems: message ? "flex-start" : "center",
           paddingVertical: 4,
           paddingHorizontal: 8,
           gap: 8,
           borderRadius: 8,
         }}
       >
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={{
-            width: compact ? 16 : 20,
-            height: 24,
-            flexShrink: 0,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Icon name={pinIcons[pin.type]} size={16} color={theme.colors.foregroundMuted} />
-          {unread && (
-            <View
-              testID={`pin-unread-${pin.key}`}
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                width: 11,
-                height: 11,
-                borderRadius: 6,
-                backgroundColor: surface,
-              }}
-            >
-              {/* Repaint the row behind the dot to mask the icon with a matching halo. */}
-              {active && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    borderRadius: 6,
-                    backgroundColor: theme.colors.foreground,
-                    opacity: hoverOpacity,
-                  }}
-                />
-              )}
-              <View
-                style={{
-                  position: "absolute",
-                  top: 2,
-                  left: 2,
-                  width: 7,
-                  height: 7,
-                  borderRadius: 4,
-                  backgroundColor: theme.colors.accent,
-                }}
-              />
-            </View>
-          )}
-        </View>
+        <PinIcon
+          type={pin.type}
+          unread={unread}
+          active={active}
+          compact={compact}
+          surface={surface}
+          theme={theme}
+          testID={`pin-unread-${pin.key}`}
+        />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Text
             style={{
@@ -173,9 +127,17 @@ export function PinRow({
           >
             {new URL(pin.url).host}
           </Text>
+          {message && <PinMessage message={message} theme={theme} />}
         </View>
       </Pressable>
-      <View style={{ width: touch ? 44 : 28, alignSelf: "stretch", justifyContent: "center" }}>
+      <View
+        style={{
+          width: touch ? 44 : 28,
+          alignSelf: "stretch",
+          justifyContent: message ? "flex-start" : "center",
+          paddingTop: message ? 4 : 0,
+        }}
+      >
         {unread && (
           <Pressable
             {...events}

@@ -41,12 +41,17 @@ export const upsertPinSchema = z
     notify: z
       .object({
         id: z.string().trim().min(1).max(128),
-        reason: z.string().trim().min(1).max(240).optional(),
+        reason: z
+          .string()
+          .trim()
+          .min(1)
+          .max(240)
+          .describe("Required message explaining what changed and why it matters to the user."),
       })
       .strict()
       .optional()
       .describe(
-        "Flag a meaningful update for the user. Reuse the same id when retrying one event; choose a new id for a new event. Routine edits should omit notify. New pins always notify.",
+        "Flag a meaningful update for the user. Reuse the same id when retrying one event; choose a new id for a new event. Routine edits should omit notify. Only updates to existing pins can notify; new pins start read, and notify on creation is ignored (its id is consumed for safe retries).",
       ),
   })
   .strict();
@@ -101,7 +106,42 @@ const pinSchema = resourceSchema.extend({
     .array(z.string().trim().min(1).max(128))
     .refine((ids) => new Set(ids).size === ids.length, "Duplicate notification IDs."),
 });
-export type Pin = z.infer<typeof pinSchema>;
+const currentPinSchema = pinSchema.extend({ instanceId: z.string().min(1).max(256) });
+export type Pin = z.infer<typeof currentPinSchema>;
+
+export const summaryEntrySchema = z
+  .object({
+    key: pinKeySchema,
+    instanceId: z.string().min(1).max(256),
+    title: z.string().min(1).max(120),
+    url: pinUrlSchema,
+    type: pinTypeSchema,
+    kind: z.enum(["added", "updated"]),
+    attentionToken: z.uuid().nullable(),
+    reason: z.string().max(240).optional(),
+  })
+  .strict();
+export type SummaryEntry = z.infer<typeof summaryEntrySchema>;
+const turnSummarySchema = z
+  .object({
+    id: z.string().regex(/^[a-f0-9]{64}$/),
+    agentId: z.string().min(1),
+    turnId: z.string().min(1),
+    startedAt: z.iso.datetime(),
+    endedAt: z.iso.datetime().nullable(),
+    outcome: z.enum(["completed", "interrupted"]).nullable(),
+    recovered: z.boolean(),
+    published: z.boolean(),
+    entries: z
+      .array(summaryEntrySchema)
+      .refine(
+        (entries) => new Set(entries.map((e) => e.instanceId)).size === entries.length,
+        "Duplicate summary entries.",
+      ),
+  })
+  .strict()
+  .refine((s) => Boolean(s.endedAt) === Boolean(s.outcome), "Incomplete turn outcome.");
+export type TurnSummary = z.infer<typeof turnSummarySchema>;
 export type PinInput = z.infer<typeof upsertPinSchema>;
 
 const documentSchema = z
@@ -117,7 +157,7 @@ const documentSchema = z
   })
   .strict();
 
-export const pinDocumentSchema = z.union([
+const legacyDocumentSchema = z.union([
   documentSchema,
   documentSchema
     .extend({ version: z.literal(1), pins: z.array(resourceSchema) })
@@ -136,6 +176,44 @@ export const pinDocumentSchema = z.union([
     .pipe(documentSchema),
 ]);
 
+const currentDocumentSchema = z
+  .object({
+    version: z.literal(3),
+    workspaceId: workspaceIdSchema,
+    pins: z
+      .array(currentPinSchema)
+      .refine(
+        (pins) =>
+          new Set(pins.map((p) => p.key)).size === pins.length &&
+          new Set(pins.map((p) => p.instanceId)).size === pins.length,
+        "Duplicate pin identity.",
+      ),
+    summaries: z
+      .array(turnSummarySchema)
+      .refine(
+        (items) => new Set(items.map((s) => s.id)).size === items.length,
+        "Duplicate summary identity.",
+      ),
+  })
+  .strict();
+export const pinDocumentSchema = z.union([
+  currentDocumentSchema,
+  legacyDocumentSchema
+    .transform(
+      (document): z.input<typeof currentDocumentSchema> => ({
+        ...document,
+        version: 3 as const,
+        pins: document.pins.map((pin) => ({
+          ...pin,
+          instanceId: `legacy:${pin.key}:${pin.createdAt}`,
+        })),
+        summaries: [],
+      }),
+    )
+    .pipe(currentDocumentSchema),
+]);
+export type PinDocument = z.infer<typeof pinDocumentSchema>;
+
 export function isUnread(pin: Pin): boolean {
   return pin.attention !== null && pin.attention.token !== pin.readAttentionToken;
 }
@@ -145,7 +223,7 @@ export function pinSnapshot(pins: Pin[]) {
 }
 
 const snapshotSchema = z.object({
-  pins: z.array(pinSchema),
+  pins: z.array(currentPinSchema),
   unreadCount: z.number().int().nonnegative(),
 });
 

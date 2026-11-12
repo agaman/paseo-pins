@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx tests/pins.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
     "lint": "biome check --formatter-enabled=false --error-on-warnings .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
-    "@getpaseo/plugin": "0.15.2",
+    "@getpaseo/plugin": "0.15.4",
     "@tanstack/react-query": "^5.90.11",
     "@types/node": "^22.0.0",
     "@types/react": "~19.2.0",

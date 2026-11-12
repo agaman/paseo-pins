@@ -7,6 +7,7 @@ import type { AgentToolContext } from "@getpaseo/plugin/server";
 import { pinGuidance, withPinGuidance } from "../server/guidance.ts";
 import { PinStore } from "../server/store.ts";
 import { createPinTools } from "../server/tools.ts";
+import { PinTurns } from "../server/turns";
 import { isUnread, pinSnapshot, pinUrlSchema, upsertPinSchema } from "../shared/pins.ts";
 
 const preview = {
@@ -309,7 +310,9 @@ test("batches share the single-pin queue and retain concurrent changes", async (
 
 test("agent tools use caller workspace and handle a complete pin lifecycle", async (t) => {
   const { store } = await fixture(t);
-  const tools = createPinTools(store);
+  const turns = new PinTurns(store);
+  const tools = createPinTools(store, turns);
+  t.after(() => turns.close());
   const context = (workspaceId: string | null) =>
     ({
       agent: {
@@ -320,8 +323,17 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
         cwd: "/tmp",
         title: "Test",
       },
+      paseo: {
+        agents: {
+          ref: () => ({
+            refresh: async () => ({
+              agent: { workspaceId, activeTurn: { turnId: "tool-turn", startedAt: null } },
+            }),
+          }),
+        },
+      },
       signal: new AbortController().signal,
-    }) as AgentToolContext;
+    }) as unknown as AgentToolContext;
   const run = (name: string, input: unknown, workspaceId: string | null = "a") => {
     const tool = tools.find((tool) => tool.name === name);
     assert.ok(tool, `Missing tool: ${name}`);
@@ -341,7 +353,7 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
   assert.deepEqual((await run("pins_list", {})).structuredContent, { pins: [], unreadCount: 0 });
   const batch = await run("pins_apply", { upsert: [preview], remove: ["absent"] });
   assert.deepEqual(batch.structuredContent, {
-    upsert: [{ status: "created", notified: true, pin: (await store.list("a"))[0] }],
+    upsert: [{ status: "created", notified: false, pin: (await store.list("a"))[0] }],
     remove: [{ status: "absent", key: "absent" }],
     ...pinSnapshot(await store.list("a")),
   });
@@ -398,9 +410,10 @@ test("legacy pins start read, migrate lazily, and preserve resource timestamps",
   assert.equal((await store.upsert("a", preview)).status, "unchanged");
   assert.equal(await readFile(file, "utf8"), source);
   await store.upsert("a", { ...preview, key: "new-pin" });
-  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 2);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 3);
   assert.deepEqual((await store.list("a"))[0], {
     ...old,
+    instanceId: `legacy:${old.key}:${old.createdAt}`,
     attention: null,
     readAttentionToken: null,
     consumedNotificationIds: [],
@@ -414,6 +427,7 @@ function acknowledgment(pin: Awaited<ReturnType<PinStore["upsert"]>>["pin"]) {
 
 test("meaningful events notify once, including retries after acknowledgment and newer events", async (t) => {
   const { store, directory } = await fixture(t);
+  await store.upsert("a", preview);
   const first = await store.upsert("a", { ...preview, notify: { id: "build-a", reason: "Ready" } });
   assert.equal(first.notified, true);
   assert.equal(isUnread(first.pin), true);
@@ -422,7 +436,10 @@ test("meaningful events notify once, including retries after acknowledgment and 
   const ack = await store.acknowledge("a", [acknowledgment(first.pin)]);
   assert.equal(ack.unreadCount, 0);
   assert.equal(ack.pins[0]?.updatedAt, first.pin.updatedAt);
-  const retry = await store.upsert("a", { ...preview, notify: { id: "build-a" } });
+  const retry = await store.upsert("a", {
+    ...preview,
+    notify: { id: "build-a", reason: "Ready to review" },
+  });
   assert.equal(retry.status, "unchanged");
   assert.equal(retry.notified, false);
   const routine = await store.upsert("a", {
@@ -435,14 +452,14 @@ test("meaningful events notify once, including retries after acknowledgment and 
   const next = await store.upsert("a", {
     ...preview,
     url: routine.pin.url,
-    notify: { id: "build-b" },
+    notify: { id: "build-b", reason: "Ready to review" },
   });
   assert.equal(next.status, "updated");
   assert.equal(next.notified, true);
   const oldEvent = await store.upsert("a", {
     ...preview,
     url: routine.pin.url,
-    notify: { id: "build-a" },
+    notify: { id: "build-a", reason: "Ready to review" },
   });
   assert.equal(oldEvent.notified, false);
   assert.deepEqual(oldEvent.pin.attention, next.pin.attention);
@@ -452,19 +469,27 @@ test("meaningful events notify once, including retries after acknowledgment and 
   t.after(() => reopened.close());
   assert.equal(isUnread((await reopened.list("a"))[0]), false);
   assert.equal(
-    (await reopened.upsert("a", { ...preview, notify: { id: "build-a" } })).notified,
+    (
+      await reopened.upsert("a", {
+        ...preview,
+        notify: { id: "build-a", reason: "Ready to review" },
+      })
+    ).notified,
     false,
   );
 });
 
 test("snapshot acknowledgments cannot clear concurrent updates or recreated keys", async (t) => {
   const { store } = await fixture(t);
-  const first = await store.upsert("a", preview);
-  const second = await store.upsert("a", { ...preview, key: "other" });
+  const first = await unreadPin(store, preview);
+  const second = await unreadPin(store, { ...preview, key: "other" });
   const entries = [acknowledgment(first.pin), acknowledgment(second.pin)];
-  const newer = store.upsert("a", { ...preview, notify: { id: "newer" } });
+  const newer = store.upsert("a", {
+    ...preview,
+    notify: { id: "newer", reason: "Ready to review" },
+  });
   const marked = store.acknowledge("a", entries);
-  const extra = store.upsert("a", { ...preview, key: "unrelated" });
+  const extra = unreadPin(store, { ...preview, key: "unrelated" });
   await Promise.all([newer, marked, extra]);
   assert.deepEqual(
     (await marked).results.map((result) => result.status),
@@ -480,7 +505,7 @@ test("snapshot acknowledgments cannot clear concurrent updates or recreated keys
   assert.equal(repeated.pins[1]?.updatedAt, second.pin.updatedAt);
   await store.remove("a", preview.key);
   assert.equal((await store.acknowledge("a", [entries[0]])).results[0]?.status, "absent");
-  const recreated = await store.upsert("a", preview);
+  const recreated = await unreadPin(store, preview);
   assert.notEqual(recreated.pin.attention?.token, first.pin.attention?.token);
   assert.equal((await store.acknowledge("a", [entries[0]])).results[0]?.status, "stale");
   const retained = (await store.list("a")).find((pin) => pin.key === preview.key);
@@ -494,11 +519,11 @@ test("snapshot acknowledgments cannot clear concurrent updates or recreated keys
 
 test("failed notifications and acknowledgments preserve state and do not consume event IDs", async (t) => {
   const { store } = await fixture(t);
-  const first = await store.upsert("a", preview);
+  const first = await unreadPin(store, preview);
   const file = store.filePath("a");
   const original = await readFile(file, "utf8");
   const entry = acknowledgment(first.pin);
-  const update = { ...preview, notify: { id: "retry-me" } };
+  const update = { ...preview, notify: { id: "retry-me", reason: "Ready to review" } };
   const canceled = new AbortController();
   canceled.abort();
   await assert.rejects(store.upsert("a", update, canceled.signal), /canceled/);
@@ -528,7 +553,7 @@ test("v2 metadata is strict and malformed documents remain untouched", async (t)
     { attention: undefined },
     { readAttentionToken: undefined },
     { consumedNotificationIds: ["same", "same"] },
-    { notify: { id: "unapplied" } },
+    { notify: { id: "unapplied", reason: "Ready to review" } },
   ]) {
     const source = JSON.stringify({ version: 2, workspaceId: "a", pins: [{ ...pin, ...fields }] });
     await writeFile(file, source);
@@ -553,7 +578,7 @@ test("notification inputs are bounded, cannot acknowledge, and batch statuses in
   const first = await store.upsert("a", preview);
   const result = await store.apply("a", {
     upsert: [
-      { ...preview, notify: { id: " update " } },
+      { ...preview, notify: { id: " update ", reason: "Ready to review" } },
       { ...preview, key: "new" },
     ],
   });
@@ -561,13 +586,13 @@ test("notification inputs are bounded, cannot acknowledge, and batch statuses in
     result.upsert.map(({ status, notified }) => ({ status, notified })),
     [
       { status: "updated", notified: true },
-      { status: "created", notified: true },
+      { status: "created", notified: false },
     ],
   );
-  assert.equal(result.unreadCount, 2);
+  assert.equal(result.unreadCount, 1);
   assert.notEqual(result.pins[0]?.attention?.token, first.pin.attention?.token);
   assert.deepEqual(result.pins[0]?.consumedNotificationIds, ["update"]);
-  assert.equal((await store.apply("a", { remove: [preview.key] })).unreadCount, 1);
+  assert.equal((await store.apply("a", { remove: [preview.key] })).unreadCount, 0);
 });
 
 test("mark all accepts more than 100 displayed pins", async (t) => {
@@ -575,9 +600,84 @@ test("mark all accepts more than 100 displayed pins", async (t) => {
   await store.apply("a", {
     upsert: Array.from({ length: 100 }, (_, i) => ({ ...preview, key: `pin-${i}` })),
   });
-  await store.upsert("a", preview);
+  await store.apply("a", {
+    upsert: Array.from({ length: 100 }, (_, i) => ({
+      ...preview,
+      key: `pin-${i}`,
+      notify: { id: "bulk-update", reason: "Ready to review" },
+    })),
+  });
+  await unreadPin(store, preview);
   const entries = (await store.list("a")).map(acknowledgment);
   const result = await store.acknowledge("a", entries);
   assert.equal(result.results.length, 101);
   assert.equal(result.unreadCount, 0);
+});
+
+async function unreadPin(store: PinStore, input: typeof preview) {
+  await store.upsert("a", input);
+  return store.upsert("a", {
+    ...input,
+    notify: { id: "fixture-update", reason: "Ready to review" },
+  });
+}
+
+test("new pins start read, ignore creation notifications and keep retries silent", async (t) => {
+  const { store, directory } = await fixture(t);
+  const first = await store.upsert("a", preview);
+  assert.equal(first.notified, false);
+  assert.equal(first.pin.attention, null);
+  assert.equal(isUnread(first.pin), false);
+  const input = {
+    ...preview,
+    key: "with-notify",
+    notify: { id: "creation", reason: "Not an update" },
+  };
+  const created = await store.upsert("a", input);
+  assert.equal(created.notified, false);
+  assert.equal(created.pin.attention, null);
+  assert.deepEqual(created.pin.consumedNotificationIds, ["creation"]);
+  const reopened = new PinStore(directory);
+  t.after(() => reopened.close());
+  const retried = await reopened.upsert("a", input);
+  assert.equal(retried.status, "unchanged");
+  assert.equal(retried.notified, false);
+  assert.equal(pinSnapshot(await reopened.list("a")).unreadCount, 0);
+  const updated = await reopened.upsert("a", {
+    ...input,
+    notify: { id: "actual-update", reason: "New deployment" },
+  });
+  assert.equal(updated.notified, true);
+  assert.equal(isUnread(updated.pin), true);
+  assert.equal(updated.pin.attention?.reason, "New deployment");
+});
+
+test("notifications require a message before any batch changes, while legacy attention remains readable", async (t) => {
+  const { store } = await fixture(t);
+  await store.upsert("a", preview);
+  const file = store.filePath("a");
+  const before = await readFile(file, "utf8");
+  for (const reason of [undefined, "", "   ", null, 42]) {
+    const input = JSON.parse(
+      JSON.stringify({
+        upsert: [
+          { ...preview, key: "must-not-be-created" },
+          { ...preview, notify: { id: "invalid-message", reason } },
+        ],
+      }),
+    );
+    assert.throws(() => store.apply("a", input));
+    assert.equal(await readFile(file, "utf8"), before);
+  }
+  const result = await store.upsert("a", {
+    ...preview,
+    notify: { id: "ready", reason: "  Mobile navigation is ready to try.  " },
+  });
+  assert.equal(result.pin.attention?.reason, "Mobile navigation is ready to try.");
+  const legacy = JSON.parse(await readFile(file, "utf8"));
+  delete legacy.pins[0].attention.reason;
+  await writeFile(file, JSON.stringify(legacy));
+  const [pin] = await store.list("a");
+  assert.equal(pin.attention?.reason, undefined);
+  assert.equal(isUnread(pin), true);
 });

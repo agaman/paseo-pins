@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** project 1 has been separately approved and implemented, awaiting working-feature review. Projects 2–10 remain planned work only; this document does not authorize their implementation. Each brief needs technical shaping and a working-feature review when picked up; this is not an implementation sequence or a commitment to ship every item.
+**Status:** project 1 is implemented and committed; native-device verification of the mobile styling remains outstanding. Project 2 is implemented for working-feature review, including its design-canvas prototype; see its plan for the daemon-restart recovery limitation. Projects 3–10 remain briefs only. This document does not authorize implementation; each project needs a working-feature review before comprehensive validation and delivery.
 
 ## Project index
 
@@ -35,10 +35,10 @@ Detailed plan: [Notice new and meaningfully updated pins](plans/01-notifications
 
 Show users which pins are new or have changes worth their attention, with an unread count on the Pins control and a distinct appearance for unread rows. The first version uses the label `Pins (N)`; a separate badge is deferred.
 
-- New pins start unread. Agents explicitly flag meaningful updates, including changes to content at an unchanged URL. Editing a title, URL, or other field does not itself mark an existing pin unread.
+- New pins start read (revised during chat-summary implementation). Agents explicitly flag meaningful updates, including changes to content at an unchanged URL. Editing a title, URL, or other field does not itself mark an existing pin unread.
 - Count distinct unread pins in the menu badge. Repeated updates to one unread pin still contribute one; merely opening the menu does not clear the count.
 - Opening a pin from either the menu or chat marks the corresponding update read. Provide per-pin **Mark as read** and **Mark all as read** controls. Read state follows the user across devices.
-- Add an explicit attention signal to single and batch tools, with an optional short update reason. Acknowledgment must not erase a newer update arriving concurrently. A failed opening attempt should leave attention intact.
+- Add an explicit attention signal to single and batch tools, with a required short update message. Acknowledgment must not erase a newer update arriving concurrently. A failed opening attempt should leave attention intact.
 
 Illustrative behavior, not a final layout:
 
@@ -53,11 +53,13 @@ Illustrative behavior, not a final layout:
 
 ## 2. After-turn chat summaries
 
+Detailed proposal: [See each turn’s useful resources in chat](plans/02-after-turn-summaries.md). The design is **Pins · After-turn summaries** in the design canvas. Agreed refinements: include committed changes from interrupted turns, show three entries initially, provide summary-scoped acknowledgment, and publish in the originating agent's conversation. Historical rows remain visible after their captured updates are read or superseded. Tested against Paseo 0.15.4; the plugin journal recovers rows missing after daemon restart, with an explicit recovery label.
+
 Append one compact block showing the useful pins added or meaningfully updated during an agent turn.
 
 - Include new pins and updates explicitly flagged for attention. Routine edits and removals do not produce entries in this block.
 - Consolidate repeated changes to the same pin within a turn, using the final committed reference. Omit pins created and then removed before the turn ends; show no empty block.
-- Render clickable entries with resource icons, titles, and optional update reasons. Preserve their historical destinations and acknowledge the corresponding updates when opened.
+- Render clickable entries with resource icons, titles, and update messages (optional only for older saved updates and newly added pins). Preserve their historical destinations and acknowledge the corresponding updates when opened.
 - Associate changes with the originating agent and turn, including batch calls. Ensure reconnecting or reloading chat neither duplicates the block nor loses it. Define behavior for interrupted turns that already committed changes during technical shaping.
 
 **Dependency:** notification/update identities from brief 1 and supported Paseo timeline integration.
@@ -157,7 +159,7 @@ These are small project briefs, not detailed designs. Each can be shaped indepen
 | Ownership and protection enforced by the mutation layer | Repo configuration, Keep, refresh, sections |
 | Supported capture/check runtime and network context | Previews, link health |
 
-The current plugin targets Paseo 0.15.2. Public documentation describes timeline transformers/renderers and appended plugin rows, plus browser navigation on supported surfaces. It does not by itself establish that every required operation is available from our installed header popover or inline chat renderer. Verify the chosen SDK and host release before implementation; newer Paseo releases are acceptable. [Paseo plugin reference](https://paseo.sh/docs/plugins/reference)
+The current plugin targets Paseo 0.15.4. Public documentation describes timeline transformers/renderers and appended plugin rows, plus browser navigation on supported surfaces. It does not by itself establish that every required operation is available from our installed header popover or inline chat renderer. Verify the chosen SDK and host release before implementation; newer Paseo releases are acceptable. [Paseo plugin reference](https://paseo.sh/docs/plugins/reference)
 
 In particular, verify inline chip extensibility, durable chat history, file/diff navigation, capture APIs, workspace environment resolution, and temporary-agent lifecycle. Raise any resulting product tradeoff before implementing a workaround.
 

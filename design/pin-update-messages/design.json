@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "title": "Pins · Update messages",
+  "kind": "prototype",
+  "description": "Selected: thin accent line using the configured theme accent. Required update messages wrap fully, appear while unread in the menu, and remain in chat history. Other inline treatments are retained for comparison.",
+  "artboards": [
+    {
+      "id": "accent-line-light",
+      "title": "Selected · Thin accent line · Light",
+      "file": "accent-line-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "accent-line-dark",
+      "title": "Selected · Thin accent line · Dark",
+      "file": "accent-line-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "accent-line-mobile",
+      "title": "Selected · Thin accent line · Mobile",
+      "file": "accent-line-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "a-light",
+      "title": "Original · Inline message · Light",
+      "file": "a-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "a-dark",
+      "title": "Original · Inline message · Dark",
+      "file": "a-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "a-mobile",
+      "title": "Original · Inline message · Mobile",
+      "file": "a-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "italic-light",
+      "title": "Italic message · Light",
+      "file": "italic-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "italic-dark",
+      "title": "Italic message · Dark",
+      "file": "italic-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "italic-mobile",
+      "title": "Italic message · Mobile",
+      "file": "italic-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "light-fill-light",
+      "title": "Lighter background · Light",
+      "file": "light-fill-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "light-fill-dark",
+      "title": "Lighter background · Dark",
+      "file": "light-fill-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "light-fill-mobile",
+      "title": "Lighter background · Mobile",
+      "file": "light-fill-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "accent-fill-light",
+      "title": "Subtle green tint · Light",
+      "file": "accent-fill-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "accent-fill-dark",
+      "title": "Subtle green tint · Dark",
+      "file": "accent-fill-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "accent-fill-mobile",
+      "title": "Subtle green tint · Mobile",
+      "file": "accent-fill-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "message-icon-light",
+      "title": "Leading message icon · Light",
+      "file": "message-icon-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "message-icon-dark",
+      "title": "Leading message icon · Dark",
+      "file": "message-icon-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "message-icon-mobile",
+      "title": "Leading message icon · Mobile",
+      "file": "message-icon-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    },
+    {
+      "id": "message-dot-light",
+      "title": "Leading unread dot · Light",
+      "file": "message-dot-light.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Light"
+    },
+    {
+      "id": "message-dot-dark",
+      "title": "Leading unread dot · Dark",
+      "file": "message-dot-dark.html",
+      "width": 960,
+      "height": 800,
+      "group": "Desktop · Dark"
+    },
+    {
+      "id": "message-dot-mobile",
+      "title": "Leading unread dot · Mobile",
+      "file": "message-dot-mobile.html",
+      "width": 390,
+      "height": 1400,
+      "group": "Mobile"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "message-size",
+      "label": "Message size",
+      "var": "--message-size",
+      "type": "range",
+      "min": 11,
+      "max": 14,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "id": "message-gap",
+      "label": "Gap before message",
+      "var": "--row-gap",
+      "type": "range",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    }
+  ]
+}

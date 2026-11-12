@@ -4,7 +4,7 @@ A Paseo plugin that lets agents maintain useful HTTP(S) links per workspace. Use
 
 ## Development and installation
 
-Requires Node.js 22 or newer for development and Paseo 0.15.2 or newer on both daemon and app.
+Requires Node.js 22 or newer for development and Paseo 0.15.4 or newer on both daemon and app.
 
 ```sh
 npm ci
@@ -84,7 +84,7 @@ New agents receive additional maintenance instructions, preserving their existin
 
 ## Notifications and acknowledgment
 
-New pins start unread. Existing pins from before this feature start read. Unread pins show a **7px dot over the icon** and a semibold title; the workspace control shows **Pins (N)**, returning to **Pins** at zero. Opening the menu does not mark anything read.
+New pins start read, including when a creation request supplies `notify`. Creation-time notification IDs are consumed without notifying so retries stay silent. Existing pins from before this feature start read. Unread pins show a **7px dot over the icon** and a semibold title; the workspace control shows **Pins (N)**, returning to **Pins** at zero. Opening the menu does not mark anything read.
 
 For a meaningful update to an existing pin, add `notify` to an upsert or batch entry:
 
@@ -97,22 +97,30 @@ For a meaningful update to an existing pin, add `notify` to an upsert or batch e
 }
 ```
 
-Reuse an event ID for retries; choose a fresh ID for a different meaningful update. IDs are trimmed and limited to 128 characters; optional reasons to 240. A new event can notify without a URL change. Routine edits without `notify` preserve read state. Retrying any consumed event ID does not notify again, even after a newer event or acknowledgment. Each unread pin counts once.
+Reuse an event ID for retries; choose a fresh ID for a different meaningful update. IDs are trimmed and limited to 128 characters; required reasons to 240. A new event can notify without a URL change. Routine edits without `notify` preserve read state. Retrying any consumed event ID does not notify again, even after a newer event or acknowledgment. Each unread pin counts once. Every `notify` must include a nonempty `reason` explaining what changed and why it matters. The message wraps beside a 2px theme-accent line below the domain while unread in the menu; acknowledgment hides it there, while chat retains the captured message as history. Legacy saved updates without a reason still load without inventing a message.
 
 Users can open a link, use its **Mark as read** checkmark (always visible on unread pins), or the top-right **ListChecks** action (tooltip: “Mark as read”) to mark all displayed updates read. The action stays visible but disabled when everything is read. Read state is shared across clients connected to this workspace on the same daemon. Acknowledgment captures the displayed notification token, so it cannot clear a newer update or a removed-and-recreated pin. Agents cannot acknowledge through maintenance tools.
 
-The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins` and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links do not yet acknowledge pins.
+The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins` and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links acknowledge only their captured update, even when its destination has since changed.
 
 ## Data
 
 Pins live on the daemon machine under `~/.local/share/paseo-pins/workspaces/`, in one JSON file per workspace ID. Set the daemon's `PASEO_PINS_DATA_DIR` environment variable to an absolute path to change the root. Restarting the plugin picks up its inherited environment; changing the daemon environment itself may require a later daemon restart.
 
-Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1 documents are read without rewriting and migrate to version 2 on the next successful mutation. Version 2 persists attention tokens, shared read state, and consumed notification IDs. An older plugin cannot read version 2; back up the data directory before an upgrade if you need a downgrade path.
+Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1 and 2 documents are read without rewriting and migrate to version 3 on the next successful mutation. Version 3 adds stable pin lifetime IDs and a durable turn-summary journal to the attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 3; retain a data backup if you need to downgrade.
 
 Pins are links, not a secret store. The plugin rejects non-HTTP(S) schemes and embedded URL credentials, but agents must also avoid putting secrets in queries. It does not fetch links, start servers, or create tunnels. A remote preview address must be reachable from the user's device.
 
 Mounted workspace controls and the popover share a query cache and refresh every two seconds. Other connected clients converge through this polling; failures retain the previous count/list and the menu exposes an error with Retry. Browser popup blocking cannot always be detected by the host opener.
 
-See [PLAN.md](PLAN.md) for the agreed scope and product-review checkpoint. Sidebar access, chat summaries, file pins, and explicit Paseo-browser opening are deferred.
+See [PLAN.md](PLAN.md) for the agreed scope and product-review checkpoint. Sidebar access, file pins, and explicit Paseo-browser opening are deferred. After-turn summaries are implemented; see [their plan](plans/02-after-turn-summaries.md) and [validation checkpoint](VALIDATION.md).
 
-See [FUTURE_PROJECTS.md](FUTURE_PROJECTS.md) for the ten future project briefs and the product decisions behind them. Project 1 is implemented and awaiting working-feature review; the remaining briefs are planning notes.
+See [FUTURE_PROJECTS.md](FUTURE_PROJECTS.md) for the ten future project briefs and the product decisions behind them. Project 1 is committed; project 2 is implemented for working-feature review. The remaining briefs are planning notes.
+
+## After-turn summaries
+
+New pins and explicit notifications appear in one block per originating agent turn. The full-width block follows Paseo’s command-group styling: a plain collapsible heading and indented rows beside a vertical rule, without an enclosing card. Collapse hides all rows; expansion does not change read state. The block shows three historical entries initially, with **Show all** for the remainder. Its **Mark as read** action acknowledges every eligible captured update, including hidden entries. Failed or canceled turns still show committed changes with **Turn interrupted**. Routine edits/removals alone do not produce a block, and old changes are not backfilled.
+
+Historical entries keep their original title, URL, type, reason, and attention token (null for additions without a later flagged update). Removing a pin does not erase its chat links. Summary RPCs validate workspace, conversation, and summary identity; paginated reads are limited to 25 entries per page. Tool mutations reject a missing turn identity before writing so changes cannot silently be attributed to another turn.
+
+**Restart limitation:** the shipped 0.15.4 daemon does not retain plugin timeline rows across daemon restarts in the tested configuration. The plugin restores missing rows from its journal, labeling them **Recovered pin updates** with the original turn time. Restored rows are appended and may appear later in chat. Reconciliation begins on the first plugin hook/RPC connection, also runs when opening a conversation, and retries pending work every 30 seconds. No Paseo source changes are required or made.

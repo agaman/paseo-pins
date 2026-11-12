@@ -11,6 +11,7 @@ export function MenuAction({
   touch,
   disabled,
   busy,
+  expanded,
   onPress,
 }: {
   icon: string;
@@ -20,6 +21,7 @@ export function MenuAction({
   touch: boolean;
   disabled: boolean;
   busy: boolean;
+  expanded?: boolean;
   onPress(): void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -31,7 +33,7 @@ export function MenuAction({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityState={{ disabled, busy }}
+        accessibilityState={{ disabled, busy, expanded }}
         disabled={disabled}
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}

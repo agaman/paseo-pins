@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "title": "Pins · After-turn summaries",
+  "kind": "prototype",
+  "description": "One compact block for pins added or meaningfully updated in a turn. Historical links, shared read state, interrupted turns and expandable lists.",
+  "artboards": [
+    {
+      "id": "desktop-light",
+      "title": "Summary · Light",
+      "file": "desktop-light.html",
+      "width": 720,
+      "height": 670,
+      "group": "Desktop"
+    },
+    {
+      "id": "desktop-dark",
+      "title": "Summary · Dark",
+      "file": "desktop-dark.html",
+      "width": 720,
+      "height": 670,
+      "group": "Desktop"
+    },
+    {
+      "id": "mobile-light",
+      "title": "Summary · Mobile light",
+      "file": "mobile-light.html",
+      "width": 390,
+      "height": 780,
+      "group": "Mobile"
+    },
+    {
+      "id": "mobile-dark",
+      "title": "Summary · Mobile dark",
+      "file": "mobile-dark.html",
+      "width": 390,
+      "height": 780,
+      "group": "Mobile",
+      "x": 797,
+      "y": 935
+    },
+    {
+      "id": "expanded",
+      "title": "Expanded · Five resources",
+      "file": "expanded.html",
+      "width": 720,
+      "height": 860,
+      "group": "States"
+    },
+    {
+      "id": "interrupted",
+      "title": "Interrupted turn",
+      "file": "interrupted.html",
+      "width": 720,
+      "height": 670,
+      "group": "States"
+    },
+    {
+      "id": "history",
+      "title": "Read history",
+      "file": "history.html",
+      "width": 720,
+      "height": 670,
+      "group": "States"
+    },
+    {
+      "id": "error",
+      "title": "Acknowledgment failed",
+      "file": "error.html",
+      "width": 720,
+      "height": 710,
+      "group": "States"
+    },
+    {
+      "id": "no-changes",
+      "title": "No qualifying changes",
+      "file": "no-changes.html",
+      "width": 720,
+      "height": 420,
+      "group": "States"
+    },
+    {
+      "id": "recovered",
+      "title": "Recovered after a later turn",
+      "file": "recovered.html",
+      "width": 720,
+      "height": 670,
+      "group": "States"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "row-padding",
+      "label": "Row spacing",
+      "var": "--row-padding",
+      "type": "range",
+      "min": 6,
+      "max": 14,
+      "step": 1,
+      "unit": "px",
+      "default": 9
+    },
+    {
+      "id": "card-radius",
+      "label": "Block corners",
+      "var": "--card-radius",
+      "type": "range",
+      "min": 4,
+      "max": 14,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "id": "update-reasons",
+      "label": "Update reasons",
+      "var": "--reason-display",
+      "type": "toggle",
+      "on": "block",
+      "off": "none",
+      "default": true
+    }
+  ]
+}

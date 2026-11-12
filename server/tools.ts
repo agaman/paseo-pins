@@ -3,13 +3,14 @@ import { z } from "zod";
 import { applyPinsSchema, pinKeySchema, pinSnapshot, upsertPinSchema } from "../shared/pins";
 import { pinGuidance } from "./guidance";
 import type { PinStore } from "./store";
+import type { PinTurns } from "./turns";
 
 function workspace(context: AgentToolContext): string {
   if (!context.agent.workspaceId) throw new Error("Pins require a Paseo workspace.");
   return context.agent.workspaceId;
 }
 
-export function createPinTools(store: PinStore) {
+export function createPinTools(store: PinStore, turns: PinTurns) {
   return [
     defineAgentTool({
       name: "pins_list",
@@ -25,7 +26,10 @@ export function createPinTools(store: PinStore) {
       description: `Atomically apply multiple workspace pin changes. Provide upsert links and/or remove keys (at most 100 each, at least one operation). Keys must be unique across both lists. Invalid input or a failed write leaves all pins unchanged. Unmentioned pins are preserved. Returns a status for every operation and the resulting pin list, so a follow-up list call is unnecessary. ${pinGuidance}`,
       input: applyPinsSchema,
       async execute(input, context) {
-        const result = await store.apply(workspace(context), input, context.signal);
+        const workspaceId = workspace(context);
+        const result = await turns.run(context, (turn) =>
+          store.apply(workspaceId, input, context.signal, turn),
+        );
         return { structuredContent: result };
       },
     }),
@@ -34,7 +38,10 @@ export function createPinTools(store: PinStore) {
       description: `Create or update a workspace link using a stable purpose key. Choose an optional resource type; the plugin maps it to an icon. Users see the title and destination host and click to open the full URL externally. ${pinGuidance}`,
       input: upsertPinSchema,
       async execute(input, context) {
-        const result = await store.upsert(workspace(context), input, context.signal);
+        const workspaceId = workspace(context);
+        const result = await turns.run(context, (turn) =>
+          store.upsert(workspaceId, input, context.signal, turn),
+        );
         return {
           text: `${result.status}: ${result.pin.title} (${result.pin.key})`,
           structuredContent: result,
@@ -46,7 +53,10 @@ export function createPinTools(store: PinStore) {
       description: `Remove a known obsolete, expired, or superseded workspace link by key. A missing key is already removed. ${pinGuidance}`,
       input: z.object({ key: pinKeySchema }).strict(),
       async execute({ key }, context) {
-        const result = await store.remove(workspace(context), key, context.signal);
+        const workspaceId = workspace(context);
+        const result = await turns.run(context, (turn) =>
+          store.remove(workspaceId, key, context.signal, turn),
+        );
         return { text: `${result.status}: ${key}`, structuredContent: result };
       },
     }),
