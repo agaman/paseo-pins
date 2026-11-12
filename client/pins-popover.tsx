@@ -2,6 +2,7 @@ import { openExternalUrl, type PluginButtonContentProps } from "@getpaseo/plugin
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { type AcknowledgmentEntries, isUnread, type Pin } from "../shared/pins";
+import { groupPins } from "../shared/sections";
 import { MenuAction } from "./menu-action";
 import { PinRow } from "./pin-row";
 import { usePins } from "./use-pins";
@@ -13,8 +14,12 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
   const { query, markRead } = usePins(host.id, workspaceId);
   const touch = useTouchControls();
   const native = layout.platform !== "web";
-  // Native sheets use surface0; the browser menu uses surface2 even at compact widths.
-  const surface = native && layout.compact ? theme.colors.surface0 : theme.colors.surface2;
+  // Paseo owns the background. Match its surface only for the unread dot's cutout.
+  const surface = layout.compact
+    ? native
+      ? theme.colors.surface0
+      : theme.colors.surface2
+    : theme.colors.surface1;
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -86,21 +91,6 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
         maxWidth: "100%",
       }}
     >
-      {/* Desktop popovers need a fill through the inset; compact sheets own their background. */}
-      {!layout.compact && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: -16,
-            bottom: -16,
-            left: -12,
-            right: -12,
-            backgroundColor: surface,
-            borderRadius: 8,
-          }}
-        />
-      )}
       {/* Cancel the host content padding down to the built-in menu's four-pixel row inset. */}
       <View
         style={{
@@ -167,23 +157,58 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
         {query.data?.pins.length === 0 && (
           <Text style={{ ...muted, textAlign: "center", paddingVertical: 12 }}>No pins yet</Text>
         )}
-        {query.data?.pins.map((pin) => (
-          <PinRow
-            key={pin.key}
-            pin={pin}
-            theme={theme}
-            compact={layout.compact}
-            native={native}
-            surface={surface}
-            touch={touch}
-            busy={busy}
-            onOpen={() => {
-              void open(pin);
-            }}
-            onRead={() => {
-              if (pin.attention) void read([{ key: pin.key, attentionToken: pin.attention.token }]);
-            }}
-          />
+        {groupPins(query.data?.pins ?? [], query.data?.sections ?? []).map((group, index) => (
+          <View
+            key={group.section ? `section:${group.section.key}` : "unsectioned"}
+            style={
+              index > 0
+                ? {
+                    marginTop: 5,
+                    borderTopWidth: 1,
+                    borderTopColor: theme.colors.border,
+                    marginHorizontal: -4,
+                    paddingHorizontal: 4,
+                    paddingTop: 2,
+                  }
+                : undefined
+            }
+          >
+            {group.section && (
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: theme.colors.foregroundMuted,
+                  fontSize: native ? 12 : 11,
+                  fontWeight: "500",
+                  lineHeight: 16,
+                  paddingTop: 7,
+                  paddingBottom: 3,
+                  paddingHorizontal: 8,
+                }}
+              >
+                {group.section.title}
+              </Text>
+            )}
+            {group.pins.map((pin) => (
+              <PinRow
+                key={pin.key}
+                pin={pin}
+                theme={theme}
+                compact={layout.compact}
+                native={native}
+                surface={surface}
+                touch={touch}
+                busy={busy}
+                onOpen={() => {
+                  void open(pin);
+                }}
+                onRead={() => {
+                  if (pin.attention)
+                    void read([{ key: pin.key, attentionToken: pin.attention.token }]);
+                }}
+              />
+            ))}
+          </View>
         ))}
       </View>
     </View>

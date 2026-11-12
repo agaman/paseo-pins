@@ -12,6 +12,7 @@ export function PinIcon({
   active,
   compact,
   surface,
+  activeSurface,
   theme,
   testID,
 }: {
@@ -20,6 +21,7 @@ export function PinIcon({
   active: boolean;
   compact: boolean;
   surface: string;
+  activeSurface?: string;
   theme: PluginButtonContentProps["theme"];
   testID: string;
 }) {
@@ -46,10 +48,10 @@ export function PinIcon({
             width: 11,
             height: 11,
             borderRadius: 6,
-            backgroundColor: surface,
+            backgroundColor: active && activeSurface ? activeSurface : surface,
           }}
         >
-          {active && (
+          {active && !activeSurface && (
             <View
               style={{
                 position: "absolute",

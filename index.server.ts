@@ -3,7 +3,7 @@ import { withPinGuidance } from "./server/guidance";
 import { dataDirectory, PinStore } from "./server/store";
 import { createPinTools } from "./server/tools";
 import { PinTurns } from "./server/turns";
-import { acknowledgePins, listPins, pinSnapshot } from "./shared/pins";
+import { acknowledgePins, listPins } from "./shared/pins";
 import { acknowledgeSummary, readSummary } from "./shared/summaries";
 
 export default function contribute(server: PluginServerContext) {
@@ -12,7 +12,7 @@ export default function contribute(server: PluginServerContext) {
   const tools = createPinTools(store, turns);
   server.handle(listPins, async ({ workspaceId }, { paseo }) => {
     turns.connect(paseo);
-    return pinSnapshot(await store.list(workspaceId));
+    return store.snapshot(workspaceId);
   });
   server.handle(acknowledgePins, ({ workspaceId, entries }) =>
     store.acknowledge(workspaceId, entries),

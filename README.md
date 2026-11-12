@@ -41,8 +41,8 @@ The repository's [.githooks/pre-commit](.githooks/pre-commit) runs `npm run chec
 ## Agent tools
 
 - `pins_list({})` lists the calling agent's workspace pins.
-- `pins_apply({ upsert?, remove? })` atomically applies multiple changes and returns their results plus the resulting pin list.
-- `pins_upsert({ key, title, url, type?, notify? })` creates or replaces a pin with a stable purpose key, such as `dev-preview`.
+- `pins_apply({ upsert?, remove?, sections? })` atomically applies multiple changes and returns their results plus the resulting pin list.
+- `pins_upsert({ key, title, url, type?, section?, notify? })` creates or replaces a pin with a stable purpose key, such as `dev-preview`.
 - `pins_remove({ key })` removes a pin; an absent key is already removed.
 
 Agents cannot choose another workspace through these tools. Repeated identical updates are no-ops, and updates preserve creation order. Concurrent changes to different pins are serialized; the last committed update wins for the same key.
@@ -65,7 +65,7 @@ Prefer `pins_apply` when changing multiple pins:
 
 Provide at least one operation, with at most 100 upserts and 100 removals. Duplicate keys within either list, keys appearing in both lists, and invalid pins reject the whole batch. Pins not mentioned are retained. Existing pins keep their order and creation time; new pins append in upsert order. All changes share the single-pin write queue and commit in one atomic write. A failed write leaves the previous list intact.
 
-The response contains `upsert` results (`created`, `updated`, or `unchanged`, each with its pin and a `notified` boolean), `remove` results (`removed` with its pin or `absent` with its key), and `pins` plus `unreadCount`, the resulting snapshot at that commit. A follow-up `pins_list` is unnecessary. Repeating an identical batch is a no-op; omitted types preserve existing types. The single-pin tools use the same batch implementation internally.
+The response contains `upsert` results (`created`, `updated`, or `unchanged`, each with its pin and a `notified` boolean), `remove` results (`removed` with its pin or `absent` with its key), and `pins`, `sections`, and `unreadCount`, the resulting snapshot at that commit. A follow-up `pins_list` is unnecessary. Repeating an identical batch is a no-op; omitted types preserve existing types. The single-pin tools use the same batch implementation internally.
 
 Agents choose a resource type; the plugin chooses its icon:
 
@@ -81,6 +81,28 @@ Agents choose a resource type; the plugin chooses its icon:
 Omitting `type` preserves an existing pin's type; new pins and older saved pins default to `link`. The list shows a resource icon, title, and destination host (including the port). The resource link opens the original full URL; a separate checkmark acknowledges unread entries. There is no list heading, total pin count, or trailing external-link indicator.
 
 New agents receive additional maintenance instructions, preserving their existing system prompt. Existing agents receive guidance in tool descriptions after Paseo reopens their session, normally before their next idle prompt following plugin installation. Attached tools remain subject to the provider's Paseo-tool settings. The creation-time instructions remain saved if the plugin is later disabled, and apply only when the pins tools are available.
+
+## Sections
+
+Agents can group related pins beneath optional flat headings. Unsectioned pins appear first without a heading; populated sections follow creation order. Empty sections are retained for agents but hidden from the menu. Pin order within each group follows the original pin creation order. Chat summaries stay flat, and organization alone does not create notifications or summary entries.
+
+Create sections and assign pins in one atomic batch:
+
+```json
+{
+  "sections": {
+    "upsert": [{ "key": "preview", "title": "Preview" }]
+  },
+  "upsert": [{
+    "key": "dev-preview", "title": "Development preview",
+    "url": "https://preview.example.com", "type": "app", "section": "preview"
+  }]
+}
+```
+
+Omit `section` to preserve an existing assignment (new pins default to unsectioned); use `null` to ungroup. Unknown section keys reject the entire batch. Section titles are trimmed, nonempty, and limited to 80 characters; keys use the same format as pin keys. Renaming a section preserves its position. `sections.remove: ["preview"]` removes that heading and ungroups its surviving members without deleting pins. Explicitly assigning to a section removed in the same batch is invalid; moving to another section is allowed.
+
+Section-only batches are valid. At most 100 section upserts and 100 removals are accepted per batch. Duplicate/conflicting section keys are rejected; pin and section keys use separate namespaces. `sectionResults.upsert` reports `created`, `updated`, or `unchanged` with a section; `sectionResults.remove` reports `removed` with a section or `absent` with a key. All full snapshots include `sections: [{ key, title }]`, and every pin has `section: string | null`. Single-pin tools also return the full snapshot alongside their operation result. Global acknowledgment covers all groups and preserves organization.
 
 ## Notifications and acknowledgment
 
@@ -101,13 +123,13 @@ Reuse an event ID for retries; choose a fresh ID for a different meaningful upda
 
 Users can open a link, use its **Mark as read** checkmark (always visible on unread pins), or the top-right **ListChecks** action (tooltip: “Mark as read”) to mark all displayed updates read. The action stays visible but disabled when everything is read. Read state is shared across clients connected to this workspace on the same daemon. Acknowledgment captures the displayed notification token, so it cannot clear a newer update or a removed-and-recreated pin. Agents cannot acknowledge through maintenance tools.
 
-The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins` and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links acknowledge only their captured update, even when its destination has since changed.
+The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins`, `sections`, and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links acknowledge only their captured update, even when its destination has since changed.
 
 ## Data
 
 Pins live on the daemon machine under `~/.local/share/paseo-pins/workspaces/`, in one JSON file per workspace ID. Set the daemon's `PASEO_PINS_DATA_DIR` environment variable to an absolute path to change the root. Restarting the plugin picks up its inherited environment; changing the daemon environment itself may require a later daemon restart.
 
-Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1 and 2 documents are read without rewriting and migrate to version 3 on the next successful mutation. Version 3 adds stable pin lifetime IDs and a durable turn-summary journal to the attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 3; retain a data backup if you need to downgrade.
+Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1–3 documents are read without rewriting and migrate to version 4 on the next successful mutation. Version 4 adds ordered section definitions and nullable pin assignments, preserving pin lifetime IDs, the turn-summary journal, attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 4; retain a data backup if you need to downgrade.
 
 Pins are links, not a secret store. The plugin rejects non-HTTP(S) schemes and embedded URL credentials, but agents must also avoid putting secrets in queries. It does not fetch links, start servers, or create tunnels. A remote preview address must be reachable from the user's device.
 

@@ -16,6 +16,7 @@ import {
   workspaceIdSchema,
 } from "../shared/pins";
 import { summaryEntryUnread } from "../shared/summaries";
+import { applySections } from "./sections";
 import { recordChanges, type TurnIdentity } from "./summary-records";
 
 type UpsertResult = { status: "created" | "updated" | "unchanged"; pin: Pin; notified: boolean };
@@ -58,6 +59,11 @@ export class PinStore {
     return (await this.document(workspaceId)).pins;
   }
 
+  async snapshot(workspaceId: string) {
+    const { pins, sections } = await this.document(workspaceId);
+    return pinSnapshot(pins, sections);
+  }
+
   private async document(workspaceId: string): Promise<PinDocument> {
     const file = this.filePath(workspaceId);
     let text: string;
@@ -65,7 +71,7 @@ export class PinStore {
       text = await readFile(file, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return { version: 3, workspaceId, pins: [], summaries: [] };
+        return { version: 4, workspaceId, pins: [], sections: [], summaries: [] };
       throw new Error("Could not read workspace pins.", { cause: error });
     }
     try {
@@ -81,15 +87,17 @@ export class PinStore {
   }
 
   upsert(workspaceId: string, input: PinInput, signal?: AbortSignal, turn?: TurnIdentity) {
-    return this.apply(workspaceId, { upsert: [input] }, signal, turn).then(
-      (result) => result.upsert[0],
-    );
+    return this.apply(workspaceId, { upsert: [input] }, signal, turn).then((result) => ({
+      ...result.upsert[0],
+      ...pinSnapshot(result.pins, result.sections),
+    }));
   }
 
   remove(workspaceId: string, key: string, signal?: AbortSignal, turn?: TurnIdentity) {
-    return this.apply(workspaceId, { remove: [key] }, signal, turn).then(
-      (result) => result.remove[0],
-    );
+    return this.apply(workspaceId, { remove: [key] }, signal, turn).then((result) => ({
+      ...result.remove[0],
+      ...pinSnapshot(result.pins, result.sections),
+    }));
   }
 
   apply(workspaceId: string, input: PinBatchInput, signal?: AbortSignal, turn?: TurnIdentity) {
@@ -112,12 +120,24 @@ export class PinStore {
         const pin = previousPins.find((entry) => entry.key === key);
         return pin ? { status: "removed", pin } : { status: "absent", key };
       });
+      const sectionResults = applySections(document, value);
+      const sectionKeys = new Set(document.sections.map((section) => section.key));
       const removedKeys = new Set(value.remove);
-      const pins = previousPins.filter((pin) => !removedKeys.has(pin.key));
+      let ungrouped = false;
+      const pins = previousPins
+        .filter((pin) => !removedKeys.has(pin.key))
+        .map((pin) => {
+          if (pin.section === null || sectionKeys.has(pin.section)) return pin;
+          ungrouped = true;
+          return { ...pin, section: null, updatedAt: this.now() };
+        });
       const upsert: UpsertResult[] = [];
       for (const entry of value.upsert ?? []) {
         const index = pins.findIndex((pin) => pin.key === entry.key);
         const previous = pins[index];
+        const section = entry.section === undefined ? (previous?.section ?? null) : entry.section;
+        if (section !== null && !sectionKeys.has(section))
+          throw new Error(`Unknown section: ${section}.`);
         const type = entry.type ?? previous?.type ?? "link";
         const notified = Boolean(
           previous && entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id),
@@ -126,7 +146,8 @@ export class PinStore {
           !notified &&
           previous?.title === entry.title &&
           previous.url === entry.url &&
-          previous.type === type
+          previous.type === type &&
+          previous.section === section
         ) {
           upsert.push({ status: "unchanged", pin: previous, notified: false });
           continue;
@@ -138,6 +159,7 @@ export class PinStore {
           title: entry.title,
           url: entry.url,
           type,
+          section,
           createdAt: previous?.createdAt ?? timestamp,
           updatedAt: timestamp,
           attention: notified
@@ -160,6 +182,9 @@ export class PinStore {
         upsert.push({ status: previous ? "updated" : "created", pin, notified });
       }
       const changed =
+        ungrouped ||
+        sectionResults.upsert.some((result) => result.status !== "unchanged") ||
+        sectionResults.remove.some((result) => result.status === "removed") ||
         upsert.some((result) => result.status !== "unchanged") ||
         remove.some((result) => result.status === "removed");
       // One atomic rename commits the entire batch; no-op batches never write.
@@ -168,7 +193,7 @@ export class PinStore {
         if (turn) recordChanges(document, turn, upsert);
         await this.save(document, signal);
       }
-      return { upsert, remove, ...pinSnapshot(pins) };
+      return { upsert, remove, sectionResults, ...pinSnapshot(pins, document.sections) };
     });
   }
 
@@ -190,7 +215,7 @@ export class PinStore {
       if (results.some((result) => result.status === "acknowledged")) {
         await this.save(document, signal);
       }
-      return { results, ...pinSnapshot(pins) };
+      return { results, ...pinSnapshot(pins, document.sections) };
     });
   }
 

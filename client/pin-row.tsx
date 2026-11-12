@@ -3,7 +3,7 @@ import { Icon } from "@getpaseo/plugin/client/ui";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { isUnread, type Pin } from "../shared/pins";
-import { PinIcon, rowHoverOpacity } from "./pin-icon";
+import { PinIcon } from "./pin-icon";
 import { PinMessage } from "./pin-message";
 import { readButtonBackground } from "./theme";
 
@@ -73,8 +73,7 @@ export function PinRow({
             left: 0,
             right: 0,
             borderRadius: 8,
-            backgroundColor: theme.colors.foreground,
-            opacity: rowHoverOpacity,
+            backgroundColor: theme.colors.surface2,
           }}
         />
       )}
@@ -103,6 +102,7 @@ export function PinRow({
           active={active}
           compact={compact}
           surface={surface}
+          activeSurface={theme.colors.surface2}
           theme={theme}
           testID={`pin-unread-${pin.key}`}
         />

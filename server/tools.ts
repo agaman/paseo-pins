@@ -1,6 +1,6 @@
 import { type AgentToolContext, defineAgentTool } from "@getpaseo/plugin/server";
 import { z } from "zod";
-import { applyPinsSchema, pinKeySchema, pinSnapshot, upsertPinSchema } from "../shared/pins";
+import { applyPinsSchema, pinKeySchema, upsertPinSchema } from "../shared/pins";
 import { pinGuidance } from "./guidance";
 import type { PinStore } from "./store";
 import type { PinTurns } from "./turns";
@@ -17,13 +17,12 @@ export function createPinTools(store: PinStore, turns: PinTurns) {
       description: `List the useful links in your current workspace. ${pinGuidance}`,
       input: z.object({}).strict(),
       async execute(_, context) {
-        const pins = await store.list(workspace(context));
-        return { structuredContent: pinSnapshot(pins) };
+        return { structuredContent: await store.snapshot(workspace(context)) };
       },
     }),
     defineAgentTool({
       name: "pins_apply",
-      description: `Atomically apply multiple workspace pin changes. Provide upsert links and/or remove keys (at most 100 each, at least one operation). Keys must be unique across both lists. Invalid input or a failed write leaves all pins unchanged. Unmentioned pins are preserved. Returns a status for every operation and the resulting pin list, so a follow-up list call is unnecessary. ${pinGuidance}`,
+      description: `Atomically apply workspace pin and section changes. Use sections.upsert to create/rename and sections.remove to ungroup members without deleting them; at most 100 of each. Section-only batches are allowed. Provide upsert links and/or remove keys (at most 100 each, at least one operation). Keys must be unique across both lists. Invalid input or a failed write leaves all pins unchanged. Unmentioned pins are preserved. Returns a status for every operation and the resulting pin list, so a follow-up list call is unnecessary. ${pinGuidance}`,
       input: applyPinsSchema,
       async execute(input, context) {
         const workspaceId = workspace(context);

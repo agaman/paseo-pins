@@ -345,16 +345,22 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
   assert.equal((await store.list("a"))[0]?.type, "app");
   assert.deepEqual((await run("pins_list", {}, "b")).structuredContent, {
     pins: [],
+    sections: [],
     unreadCount: 0,
   });
   await assert.rejects(async () => run("pins_list", {}, null), /require a Paseo workspace/);
   assert.throws(() => run("pins_upsert", { ...preview, workspaceId: "b" }));
   await run("pins_remove", { key: preview.key });
-  assert.deepEqual((await run("pins_list", {})).structuredContent, { pins: [], unreadCount: 0 });
+  assert.deepEqual((await run("pins_list", {})).structuredContent, {
+    pins: [],
+    sections: [],
+    unreadCount: 0,
+  });
   const batch = await run("pins_apply", { upsert: [preview], remove: ["absent"] });
   assert.deepEqual(batch.structuredContent, {
     upsert: [{ status: "created", notified: false, pin: (await store.list("a"))[0] }],
     remove: [{ status: "absent", key: "absent" }],
+    sectionResults: { upsert: [], remove: [] },
     ...pinSnapshot(await store.list("a")),
   });
   assert.deepEqual(await store.list("b"), []);
@@ -364,12 +370,14 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
     status: "updated",
     notified: true,
     pin: (await store.list("a"))[0],
+    ...(await store.snapshot("a")),
   });
   const repeated = await run("pins_upsert", attention);
   assert.deepEqual(repeated.structuredContent, {
     status: "unchanged",
     notified: false,
     pin: (await store.list("a"))[0],
+    ...(await store.snapshot("a")),
   });
   assert.ok(!tools.some((tool) => tool.name.includes("acknowledge")));
   assert.throws(() => run("pins_apply", { remove: [preview.key], workspaceId: "b" }));
@@ -378,6 +386,18 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
     /require a Paseo workspace/,
   );
   assert.throws(() => run("pins_apply", { upsert: [preview], remove: [preview.key] }));
+  await run("pins_apply", {
+    sections: { upsert: [{ key: "preview", title: "Preview" }] },
+    upsert: [{ ...preview, section: "preview" }],
+  });
+  const grouped = await store.snapshot("a");
+  assert.deepEqual((await run("pins_list", {})).structuredContent, grouped);
+  assert.equal(grouped.pins[0].section, "preview");
+  assert.equal(grouped.unreadCount, 1);
+  await run("pins_upsert", preview);
+  assert.equal((await store.list("a"))[0].section, "preview");
+  await run("pins_apply", { sections: { remove: ["preview"] } });
+  assert.equal((await store.list("a"))[0].section, null);
   assert.ok(tools.every((tool) => tool.description.includes(pinGuidance)));
 });
 
@@ -410,10 +430,11 @@ test("legacy pins start read, migrate lazily, and preserve resource timestamps",
   assert.equal((await store.upsert("a", preview)).status, "unchanged");
   assert.equal(await readFile(file, "utf8"), source);
   await store.upsert("a", { ...preview, key: "new-pin" });
-  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 3);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 4);
   assert.deepEqual((await store.list("a"))[0], {
     ...old,
     instanceId: `legacy:${old.key}:${old.createdAt}`,
+    section: null,
     attention: null,
     readAttentionToken: null,
     consumedNotificationIds: [],
@@ -555,7 +576,12 @@ test("v2 metadata is strict and malformed documents remain untouched", async (t)
     { consumedNotificationIds: ["same", "same"] },
     { notify: { id: "unapplied", reason: "Ready to review" } },
   ]) {
-    const source = JSON.stringify({ version: 2, workspaceId: "a", pins: [{ ...pin, ...fields }] });
+    const { instanceId: _instanceId, section: _section, ...v2Pin } = pin;
+    const source = JSON.stringify({
+      version: 2,
+      workspaceId: "a",
+      pins: [{ ...v2Pin, ...fields }],
+    });
     await writeFile(file, source);
     await assert.rejects(store.list("a"), /preserved/);
     await assert.rejects(store.upsert("a", preview), /preserved/);

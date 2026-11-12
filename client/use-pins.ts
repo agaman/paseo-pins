@@ -25,7 +25,11 @@ export function usePins(hostId: string, workspaceId: string) {
     await cache.cancelQueries({ queryKey });
     const result = await acknowledge({ workspaceId, entries });
     await cache.cancelQueries({ queryKey });
-    cache.setQueryData(queryKey, { pins: result.pins, unreadCount: result.unreadCount });
+    cache.setQueryData(queryKey, {
+      pins: result.pins,
+      sections: result.sections,
+      unreadCount: result.unreadCount,
+    });
     void cache.invalidateQueries({ queryKey });
   }
 

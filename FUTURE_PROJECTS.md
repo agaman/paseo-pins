@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** project 1 is implemented and committed; native-device verification of the mobile styling remains outstanding. Project 2 is implemented for working-feature review, including its design-canvas prototype; see its plan for the daemon-restart recovery limitation. Projects 3–10 remain briefs only. This document does not authorize implementation; each project needs a working-feature review before comprehensive validation and delivery.
+**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Project 7 (sections) is implemented for working-feature review; comprehensive validation remains pending approval. Projects 4–6 and 8–10 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
 
 ## Project index
 
@@ -66,6 +66,8 @@ Append one compact block showing the useful pins added or meaningfully updated d
 
 ## 3. Inline pin references
 
+**Deferred (2026-11-12):** verified installed/latest published SDK 0.15.4 and current public documentation. Markdown takes only a string, with no custom inline renderer or link callback. Timeline transformers replace whole entries. Revisit when a supported inline extension exists; do not replace the message renderer or change Paseo for this feature. See [Markdown API](https://paseo.sh/docs/plugins/reference#markdown) and [timeline API](https://paseo.sh/docs/plugins/reference#timeline-items).
+
 Let an agent refer to a pin within ordinary prose using a compact clickable chip containing its icon and title.
 
 - Provide an agent-facing reference mechanism through the pin tools and their instructions; agents should not invent opaque identifiers or manually reconstruct rendering syntax.
@@ -106,9 +108,11 @@ Expand pins beyond external HTTP(S) links to workspace files, Paseo browser page
 - Support diffs as explicit targets with enough context to identify the file/change comparison. Decide the initial supported diff forms before implementation; distinguish a live working-tree diff from a fixed revision comparison.
 - Use the same opener from the menu, summaries, and inline chips. Preserve existing HTTP(S) pins and report unavailable files, workspaces, or comparisons clearly.
 
-**Technical shaping:** verify supported navigation from header popovers and chat surfaces; include a small Paseo API prerequisite if necessary. No private route construction or unsupported client imports.
+**Technical shaping:** verify supported navigation from header popovers and chat surfaces. Use an existing supported capability or defer that destination; Paseo changes are outside this plugin’s scope. No private route construction or unsupported client imports.
 
 ## 7. Sections
+
+Implementation and review checkpoint: [Group related pins without complicating the menu](plans/07-sections.md). Agreed v1: simple headings, unsectioned pins first without a heading, and flat chat summaries. Design: **Pins · Sections**.
 
 Let agents group related resources into optional, flat sections without turning the menu into a nested navigation system.
 

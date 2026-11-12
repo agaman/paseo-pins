@@ -172,3 +172,24 @@ Two independent reviewers covered the full pending change against `bf53bbf`: ser
 The complete `npm run check` gate passed: lint, formatting, TypeScript, Knip, duplicate detection, and both test suites (39 test cases). The normal pre-commit hook remains enabled. Final composed previews in isolated released Paseo 0.15.4 passed desktop/mobile light/dark notification messages, three/all-entry expansion, full collapse, menu acknowledgment with retained chat messages, interrupted-turn labeling, injected acknowledgment failure/retry without reopening, and historical destinations preserving a newer unread update. Screenshots inspected include `/tmp/paseo-pins-qa/review-chat-desktop-light.png` and `review-menu-mobile-dark.png`. No live pins were changed by this review.
 
 The user subsequently exercised two successful normal bulk notification calls in the real agent session. That verifies ordinary live mutations; the earlier reload-during-turn fallback issue is not claimed fixed by those calls. The recovery race fix addresses the reproduced ordering failure, while the broader reload/provider behavior and actual iOS/Android-device rendering remain limitations. The shipped host's restart placement limitation remains documented in README. Comprehensive repository validation deferred in earlier entries is now complete.
+
+
+## Sections working-feature checkpoint — 2026-11-12
+
+Implemented flat sections through `pins_apply`, nullable pin assignments, atomic removal/ungrouping, lazy v4 migration, grouped menu headings, snapshot/cache retention, and agent guidance. No Paseo changes.
+
+- Typecheck passed. Focused pin, section, and summary tests passed; sections coverage exercises ordering, empty groups, schema rejection, atomic failure/cancellation, concurrent operations, silent maintenance, acknowledgment, v1–v3 migration, and corrupt-data preservation.
+- Actual menu components and `usePins` rendered with mocked host RPCs in Chromium/React Native Web. Desktop/mobile-sized light/dark, wrapped headings, unsectioned-only/named-only/empty states, loading/retry, and acknowledgment cache retention passed. Inspected composed desktop/mobile and long-heading screenshots under `/tmp/paseo-pins-qa/sections-working-*.png`.
+- Reloaded `paseo-pins` successfully from this repository; status `running`. Current-turn tool bindings were invalidated by the host reload. Live section assignment is pending the next agent session open; existing live pins were not edited directly.
+- Working-feature review, native-device review, and comprehensive validation remain pending. No commit made.
+
+
+### Sections and menu themes: commit review
+
+Review scope is all pending changes against `c3716d3`: sections, refreshed design canvas, planning/docs, and the requested menu theme correction. Static checks found an unused `pinSectionSchema` export; it is now module-private. Independent UI review found obsolete migration wording in OVERVIEW; the overview now describes automatic migration without version details.
+
+Live composed Paseo inspection confirmed five pins under Guides and Code and review, with an unsectioned pin first, on desktop and compact web in light/dark themes. The host supplies the menu surface; rows use `surface2` directly. Desktop uses `surface1`, compact web uses `surface2`, and native compact sheets use `surface0`; the unread dot matches the respective surface and hover fill. Compact web’s distinct surface was found during live review and the cutout selection was corrected. No live pin state was changed during review. Native rendering remains covered by component emulation, not an actual iOS/Android device.
+
+The earlier live-data tests exposed an existing turn-identity bug: the provider reused `codex-turn-0` with a new start time, but Pins treated it as an older finalized turn. Normal writes were rejected before changing data. The requested demo resets were completed through PinStore while the plugin was disabled, then it was re-enabled; those resets produced menu notifications but no chat summaries. This pre-existing turn-attribution issue is outside the sections/theme change and remains unresolved; the final commit does not claim normal live tool integration is fully validated.
+
+Both final independent reviews report no actionable findings after the fixes. The complete `npm run check` gate passed (lint, formatting, TypeScript, Knip, duplicate detection, and all three test files containing 44 cases). Final component checks cover desktop, compact web, and native-layout light/dark cutouts, transparent plugin content, exact hover tokens, and distinct acknowledgment-button hover. The corrected directory plugin was reloaded and reports running. Screenshots under `/tmp/paseo-pins-qa/review-sections-live-*` and `menu-theme-*` were inspected. The normal pre-commit gate remains enabled; actual native-device inspection and the existing turn-ID bug remain limitations.
