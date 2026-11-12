@@ -6,6 +6,7 @@ import { refreshGuidance } from "./refresh-guidance";
 import { activeRun, pinRevision } from "./refresh-mutations";
 import { isRefreshToolPermission, type RefreshPermission } from "./refresh-permissions";
 import { resolveRefreshProfile } from "./refresh-profile";
+import { requireConfigReady } from "./repo-config";
 import type { PinStore } from "./store";
 
 export class RefreshCoordinator {
@@ -44,7 +45,9 @@ export class RefreshCoordinator {
   }
   async start(workspaceId: string, requestId: string, paseo: Paseo) {
     this.connect(paseo);
-    const saved = (await this.store.document(workspaceId)).refresh;
+    const current = await this.store.current(workspaceId);
+    requireConfigReady(current);
+    const saved = current.refresh;
     if (saved && (!saved.outcome || saved.cleanupPending || saved.requestId === requestId)) {
       this.knownWorkspaces.add(workspaceId);
       this.schedule(workspaceId);
@@ -56,6 +59,7 @@ export class RefreshCoordinator {
     if (!(await paseo.workspaces.ref(workspaceId).refresh()))
       throw new Error("Workspace is unavailable.");
     const run = await this.store.transaction(workspaceId, (document) => {
+      requireConfigReady(document);
       if (
         document.refresh &&
         (!document.refresh.outcome ||

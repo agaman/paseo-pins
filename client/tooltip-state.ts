@@ -18,6 +18,7 @@ export function createTooltipState() {
         listeners.delete(listener);
       };
     },
+    hasOpen: () => owner !== null,
     isOpen: (id: string) => owner === id,
     show(id: string, origin: "hover" | "focus") {
       owner = id;
@@ -30,3 +31,5 @@ export function createTooltipState() {
     },
   };
 }
+
+export const actionTooltips = createTooltipState();

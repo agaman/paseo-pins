@@ -300,7 +300,13 @@ test("discovery v2 requires priority accounting and distinguishes missing eviden
 test("priority coverage accepts migrated pins, protects lifetimes, and requires inspected sources", async (t) => {
   const f = await fixture(t, "maintenance");
   await f.store.transaction("a", (doc) => {
-    const { instanceId: _id, section: _section, kept: _kept, ...legacyPin } = doc.pins[0];
+    const {
+      instanceId: _id,
+      section: _section,
+      kept: _kept,
+      source: _source,
+      ...legacyPin
+    } = doc.pins[0];
     doc.pins = pinDocumentSchema.parse({
       version: 2,
       workspaceId: "a",

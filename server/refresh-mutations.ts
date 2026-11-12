@@ -40,15 +40,17 @@ export function scopedSnapshot(document: PinDocument, run: RefreshRun) {
   return {
     mode: run.mode ?? (run.initialCount === 0 ? "discovery" : "maintenance"),
     discoveryVersion: run.discoveryVersion,
+    config: { loaded: document.repo.digest !== null, error: document.repo.error },
     pins: document.pins.map((pin) => ({
       ...pin,
       revision: pinRevision(pin),
-      editable: run.scope[pin.key] === pin.instanceId,
+      editable: pin.source !== "repo" && run.scope[pin.key] === pin.instanceId,
+      notifiable: run.scope[pin.key] === pin.instanceId,
     })),
     sections: document.sections.map((section) => ({
       ...section,
       revision: sectionRevision(document, section.key),
-      editable: run.sectionKeys.includes(section.key),
+      editable: section.source !== "repo" && run.sectionKeys.includes(section.key),
     })),
   };
 }
@@ -143,8 +145,11 @@ export function applyRefresh(
       }
       for (const item of value.remove ?? [])
         eligible(document, run, item.key, item.expectedRevision);
+      for (const item of value.notify ?? [])
+        eligible(document, run, item.key, item.expectedRevision);
       const result = apply(
         {
+          notify: value.notify?.map(({ expectedRevision: _revision, ...entry }) => entry),
           upsert: value.upsert?.map(
             ({ expectedRevision: _revision, reason: _reason, sources: _sources, ...pin }) => pin,
           ),
@@ -170,7 +175,11 @@ export function applyRefresh(
           key: pin.key,
           instanceId: pin.instanceId,
           title: pin.title,
-          reason: item?.reason ?? sectionRemoval?.reason ?? "Section updated.",
+          reason:
+            item?.reason ??
+            value.notify?.find((entry) => entry.key === pin.key)?.reason ??
+            sectionRemoval?.reason ??
+            "Section updated.",
           sources: item?.sources.length
             ? item.sources
             : (run.changes.find((change) => change.instanceId === pin.instanceId)?.sources ?? []),

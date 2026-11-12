@@ -58,10 +58,10 @@ export function createRefreshTools(store: PinStore, turns: PinTurns, refresh: Re
     defineAgentTool({
       name: refreshToolNames.list,
       description:
-        "Read current pins/sections, editable markers, and revisions. Only initial or refresh-created lifetimes are editable. Re-read after conflicts; never overwrite concurrent work.",
+        "Read current pins/sections, editable/notifiable markers, and revisions. Assess all notifiable pins, including non-editable repository pins. Only initial or refresh-created agent-managed lifetimes are editable. Re-read after conflicts; never overwrite concurrent work.",
       input: z.object({}).strict(),
       async execute(_, context) {
-        const document = await store.document(workspace(context));
+        const document = await store.current(workspace(context));
         return {
           structuredContent: scopedSnapshot(document, activeRun(document, context.agent.id)),
         };
@@ -86,7 +86,7 @@ export function createRefreshTools(store: PinStore, turns: PinTurns, refresh: Re
     defineAgentTool({
       name: refreshToolNames.apply,
       description:
-        "Atomically apply justified pin/section maintenance. Stable operationId makes identical retries safe. Existing pins require inspected expectedRevision; creations use null and source IDs. Section removal requires memberRevisions; assigning an existing section requires sectionRevisions. Conflicts reject the whole batch. New pins stay read; routine maintenance must not notify. Returns fresh revisions.",
+        "Atomically apply justified pin/section maintenance. Stable operationId makes identical retries safe. Existing pins require inspected expectedRevision; creations use null and source IDs. Section removal requires memberRevisions; assigning an existing section requires sectionRevisions. Conflicts reject the whole batch. New pins stay read; routine maintenance must not notify. Config-owned pins/sections cannot be edited or removed. Use notify entries with key, instanceId, expectedUrl, expectedRevision, id and reason for attention without a resource edit. Returns fresh revisions.",
       input: refreshApplySchema,
       async execute(input, context) {
         const result = await turns.run(context, (turn) =>

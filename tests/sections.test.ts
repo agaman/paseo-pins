@@ -63,7 +63,10 @@ test("sections and pins commit together, preserve canonical order, and hide empt
   assert.equal(renamed.sectionResults.upsert[0].status, "updated");
   const before = await readFile(store.filePath("a"), "utf8");
   const noOp = await store.apply("a", {
-    sections: { upsert: renamed.sections, remove: ["absent"] },
+    sections: {
+      upsert: renamed.sections.map(({ key, title }) => ({ key, title })),
+      remove: ["absent"],
+    },
   });
   assert.ok(noOp.sectionResults.upsert.every((r) => r.status === "unchanged"));
   assert.equal(await readFile(store.filePath("a"), "utf8"), before);
@@ -151,7 +154,10 @@ test("section maintenance is silent, concurrent changes survive, and acknowledgm
     store.apply("a", { sections: { upsert: [preview] } }, undefined, organization),
   ]);
   const snapshot = await store.snapshot("a");
-  assert.deepEqual(snapshot.sections, [review, preview]);
+  assert.deepEqual(
+    snapshot.sections,
+    [review, preview].map((section) => ({ ...section, source: "agent" })),
+  );
   assert.equal(snapshot.unreadCount, 1);
   assert.deepEqual(snapshot.pins[0].attention, notified.pin.attention);
   assert.deepEqual(await store.summaries("a"), history);
@@ -184,9 +190,11 @@ test("versions 1–3 migrate lazily without losing history, identity, attention 
     legacy.version = version;
     delete legacy.sections;
     delete legacy.refresh;
+    delete legacy.repo;
     for (const pin of legacy.pins) {
       delete pin.section;
       delete pin.kept;
+      delete pin.source;
       if (version < 3) delete pin.instanceId;
       if (version === 1) {
         delete pin.attention;
@@ -203,7 +211,7 @@ test("versions 1–3 migrate lazily without losing history, identity, attention 
     assert.equal(await readFile(file, "utf8"), text);
     await store.apply("a", { sections: { upsert: [review] } });
     const migrated = JSON.parse(await readFile(file, "utf8"));
-    assert.equal(migrated.version, 6);
+    assert.equal(migrated.version, 7);
     assert.deepEqual(migrated.pins, snapshot.pins);
     assert.deepEqual(migrated.summaries, legacy.summaries ?? []);
     if (version > 1) assert.deepEqual(migrated.pins[0].attention, current.pins[0].attention);

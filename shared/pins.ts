@@ -70,10 +70,22 @@ const pinSectionSchema = z
     title: z.string().trim().min(1).max(80),
   })
   .strict();
-export type PinSection = z.infer<typeof pinSectionSchema>;
+const ownedSectionSchema = pinSectionSchema.extend({ source: z.enum(["agent", "repo"]) });
+export type PinSection = z.infer<typeof ownedSectionSchema>;
+
+export const notifyPinSchema = z
+  .object({
+    key: pinKeySchema,
+    instanceId: pinInstanceIdSchema,
+    expectedUrl: pinUrlSchema,
+    id: z.string().trim().min(1).max(128),
+    reason: z.string().trim().min(1).max(240),
+  })
+  .strict();
 
 export const applyPinsSchema = z
   .object({
+    notify: z.array(notifyPinSchema).max(100).optional(),
     sections: z
       .object({
         upsert: z.array(pinSectionSchema).max(100).optional(),
@@ -94,20 +106,31 @@ export const applyPinsSchema = z
   .strict()
   .superRefine((value, context) => {
     if (
+      !value.notify?.length &&
       !value.upsert?.length &&
       !value.remove?.length &&
       !value.sections?.upsert?.length &&
       !value.sections?.remove?.length
     ) {
-      context.addIssue({ code: "custom", message: "Provide at least one upsert or removal." });
+      context.addIssue({
+        code: "custom",
+        message: "Provide at least one pin, section, or notification operation.",
+      });
     }
     for (const [prefix, batch] of [
       [[], value],
       [["sections"], value.sections],
     ] as const) {
       const seen = new Set<string>();
-      for (const field of ["upsert", "remove"] as const) {
-        const keys = field === "upsert" ? batch?.upsert?.map((item) => item.key) : batch?.remove;
+      for (const field of ["upsert", "remove", "notify"] as const) {
+        const keys =
+          field === "notify"
+            ? prefix.length
+              ? []
+              : value.notify?.map((item) => item.key)
+            : field === "upsert"
+              ? batch?.upsert?.map((item) => item.key)
+              : batch?.remove;
         keys?.forEach((key, index) => {
           if (seen.has(key))
             context.addIssue({
@@ -144,7 +167,8 @@ const pinSchema = resourceSchema.extend({
 const v3PinSchema = pinSchema.extend({ instanceId: pinInstanceIdSchema });
 const currentPinSchema = v3PinSchema.extend({ section: pinKeySchema.nullable() });
 const keptPinSchema = currentPinSchema.extend({ kept: z.boolean() });
-export type Pin = z.infer<typeof keptPinSchema>;
+const ownedPinSchema = keptPinSchema.extend({ source: z.enum(["agent", "repo"]) });
+export type Pin = z.infer<typeof ownedPinSchema>;
 
 export const summaryEntrySchema = z
   .object({
@@ -333,7 +357,7 @@ const v6DocumentSchema = z
       ),
     "Unknown section in stored pins.",
   );
-export const pinDocumentSchema = z.union([
+const v6CompatibleSchema = z.union([
   v6DocumentSchema,
   v5CompatibleSchema
     .transform(
@@ -345,19 +369,94 @@ export const pinDocumentSchema = z.union([
     )
     .pipe(v6DocumentSchema),
 ]);
+export const repoStateSchema = z
+  .object({
+    digest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .nullable(),
+    error: z.string().max(400).nullable(),
+    missingSince: z.number().nonnegative().nullable(),
+  })
+  .strict();
+export const emptyRepoState = () => ({ digest: null, error: null, missingSince: null });
+const v7DocumentSchema = z
+  .object({
+    ...v6DocumentSchema.shape,
+    version: z.literal(7),
+    pins: z
+      .array(ownedPinSchema)
+      .refine(
+        (pins) =>
+          new Set(pins.map((p) => p.key)).size === pins.length &&
+          new Set(pins.map((p) => p.instanceId)).size === pins.length,
+        "Duplicate pin identity.",
+      ),
+    sections: z
+      .array(ownedSectionSchema)
+      .refine(
+        (sections) => new Set(sections.map((s) => s.key)).size === sections.length,
+        "Duplicate section key.",
+      ),
+    repo: repoStateSchema,
+  })
+  .strict()
+  .refine(
+    (document) =>
+      document.pins.every(
+        (pin) =>
+          pin.section === null ||
+          document.sections.some(
+            (section) =>
+              section.key === pin.section && (pin.source !== "repo" || section.source === "repo"),
+          ),
+      ),
+    "Unknown or non-configured section in stored pins.",
+  )
+  .refine(
+    (document) =>
+      document.repo.digest !== null ||
+      (!document.pins.some((pin) => pin.source === "repo") &&
+        !document.sections.some((section) => section.source === "repo")),
+    "Configured resources require configuration metadata.",
+  );
+export const pinDocumentSchema = z.union([
+  v7DocumentSchema,
+  v6CompatibleSchema
+    .transform(
+      (document): z.input<typeof v7DocumentSchema> => ({
+        ...document,
+        version: 7,
+        pins: document.pins.map((pin) => ({ ...pin, source: "agent" as const })),
+        sections: document.sections.map((section) => ({ ...section, source: "agent" as const })),
+        repo: emptyRepoState(),
+      }),
+    )
+    .pipe(v7DocumentSchema),
+]);
 export type PinDocument = z.infer<typeof pinDocumentSchema>;
 
 export function isUnread(pin: Pin): boolean {
   return pin.attention !== null && pin.attention.token !== pin.readAttentionToken;
 }
 
-export function pinSnapshot(pins: Pin[], sections: PinSection[] = []) {
-  return { pins, sections, unreadCount: pins.filter(isUnread).length };
+export function pinSnapshot(
+  pins: Pin[],
+  sections: PinSection[] = [],
+  repo = emptyRepoState() as z.infer<typeof repoStateSchema>,
+) {
+  return {
+    pins,
+    sections,
+    unreadCount: pins.filter(isUnread).length,
+    config: { loaded: repo.digest !== null, error: repo.error },
+  };
 }
 
 const snapshotSchema = z.object({
-  sections: z.array(pinSectionSchema),
-  pins: z.array(keptPinSchema),
+  sections: z.array(ownedSectionSchema),
+  pins: z.array(ownedPinSchema),
+  config: z.object({ loaded: z.boolean(), error: z.string().nullable() }),
   unreadCount: z.number().int().nonnegative(),
 });
 

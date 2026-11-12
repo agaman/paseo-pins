@@ -10,11 +10,12 @@ export function applySections(document: PinDocument, input: PinBatchInput) {
   for (const section of input.sections?.upsert ?? []) {
     const index = document.sections.findIndex((item) => item.key === section.key);
     const previous = document.sections[index];
-    if (!previous) document.sections.push(section);
-    else document.sections[index] = section;
+    const next: PinSection = { ...section, source: "agent" };
+    if (!previous) document.sections.push(next);
+    else document.sections[index] = next;
     upsert.push({
       status: !previous ? "created" : previous.title === section.title ? "unchanged" : "updated",
-      section,
+      section: next,
     });
   }
   for (const key of input.sections?.remove ?? []) {

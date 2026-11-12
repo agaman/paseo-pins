@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Platform } from "react-native";
-import { createTooltipState } from "./tooltip-state";
+import { actionTooltips as tooltips } from "./tooltip-state";
 
 declare const window: {
   addEventListener(
@@ -14,7 +14,6 @@ declare const window: {
     capture?: boolean,
   ): void;
 };
-const tooltips = createTooltipState();
 let users = 0;
 const pointerActivity = () => tooltips.pointerActivity();
 const keyDown = (event: { key?: string }) => {

@@ -6,6 +6,7 @@ import { groupPins } from "../shared/sections";
 import { MenuAction } from "./menu-action";
 import { PinRow } from "./pin-row";
 import { RefreshResult } from "./refresh-result";
+import { RepoSourceLayer } from "./repo-source";
 import { usePins } from "./use-pins";
 import { useRefresh } from "./use-refresh";
 import { useTouchControls } from "./web";
@@ -109,7 +110,8 @@ export function PinsPopover({
   const groups = groupPins(query.data?.pins ?? [], query.data?.sections ?? []);
 
   return (
-    <View
+    <RepoSourceLayer
+      theme={theme}
       style={{
         // Paseo enforces a 280px popover minimum: 2px border + 24px host padding.
         width: layout.compact ? "100%" : 254,
@@ -170,6 +172,24 @@ export function PinsPopover({
             />
           </View>
         }
+        {query.data?.config?.error && (
+          <View style={{ padding: 8, gap: 5 }}>
+            <Text accessibilityRole="alert" style={muted}>
+              {query.data.config.loaded
+                ? "Couldn't load repository pins. Using the last valid configuration."
+                : "Couldn't load repository pins. No repository pins were loaded."}
+            </Text>
+            <Text style={muted}>{query.data.config.error}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void query.refetch();
+              }}
+            >
+              <Text style={foreground}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
         {run && (
           <View style={{ zIndex: groups.length + 1 }}>
             <RefreshResult
@@ -280,6 +300,6 @@ export function PinsPopover({
           </View>
         ))}
       </View>
-    </View>
+    </RepoSourceLayer>
   );
 }

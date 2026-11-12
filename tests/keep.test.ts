@@ -99,21 +99,23 @@ test("queued Keep wins against later removal and stale menu identities cannot af
   );
 });
 
-test("v5 pins migrate lazily with Keep off; malformed v6 protection is rejected", async (t) => {
+test("v5 pins migrate lazily with Keep off; malformed current protection is rejected", async (t) => {
   const { store, pin } = await fixture(t);
+  const { repo: _repo, ...base } = await store.document("a");
   const old = {
-    ...(await store.document("a")),
+    ...base,
+    sections: base.sections.map(({ source: _source, ...section }) => section),
     version: 5,
-    pins: (await store.list("a")).map(({ kept: _kept, ...p }) => p),
+    pins: (await store.list("a")).map(({ kept: _kept, source: _source, ...p }) => p),
   };
   const raw = JSON.stringify(old);
   await writeFile(store.filePath("a"), raw);
   const migrated = await store.document("a");
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.ok(migrated.pins.every((p) => p.kept === false));
   assert.equal(await readFile(store.filePath("a"), "utf8"), raw);
   await store.setKept("a", pin.key, pin.instanceId, true);
-  assert.equal(JSON.parse(await readFile(store.filePath("a"), "utf8")).version, 6);
+  assert.equal(JSON.parse(await readFile(store.filePath("a"), "utf8")).version, 7);
   assert.throws(() => pinDocumentSchema.parse({ ...migrated, pins: [{ ...pin, kept: "yes" }] }));
   assert.throws(() =>
     pinDocumentSchema.parse({ ...migrated, pins: [{ ...pin, kept: undefined }] }),

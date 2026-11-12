@@ -1,6 +1,6 @@
 import { defineRpc, defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
-import { pinKeySchema, upsertPinSchema, workspaceIdSchema } from "./pins";
+import { notifyPinSchema, pinKeySchema, upsertPinSchema, workspaceIdSchema } from "./pins";
 import {
   type RefreshRun,
   refreshChangeSchema,
@@ -126,6 +126,10 @@ const change = z.object({ key: pinKeySchema, expectedRevision: revision, reason 
 export const refreshApplySchema = z
   .object({
     operationId: operation,
+    notify: z
+      .array(notifyPinSchema.extend({ expectedRevision: revision }))
+      .max(100)
+      .optional(),
     upsert: z
       .array(
         upsertPinSchema.extend({

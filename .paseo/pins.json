@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "sections": [{ "key": "guides", "title": "Guides" }],
+  "pins": [
+    {
+      "key": "test-building",
+      "title": "Plugin quickstart",
+      "url": "https://paseo.sh/docs/plugins",
+      "type": "docs",
+      "section": "guides"
+    },
+    {
+      "key": "test-reference",
+      "title": "Plugin API reference",
+      "url": "https://paseo.sh/docs/plugins/reference",
+      "type": "docs",
+      "section": "guides"
+    },
+    {
+      "key": "plugin-publishing",
+      "title": "Publishing a plugin",
+      "url": "https://paseo.sh/docs/plugins/publishing",
+      "type": "docs",
+      "section": "guides"
+    }
+  ]
+}

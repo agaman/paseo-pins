@@ -41,7 +41,7 @@ The repository's [.githooks/pre-commit](.githooks/pre-commit) runs `npm run chec
 ## Agent tools
 
 - `pins_list({})` lists the calling agent's workspace pins.
-- `pins_apply({ upsert?, remove?, sections? })` atomically applies multiple changes and returns their results plus the resulting pin list.
+- `pins_apply({ upsert?, remove?, sections?, notify? })` atomically applies multiple changes and returns their results plus the resulting pin list.
 - `pins_upsert({ key, title, url, type?, section?, notify? })` creates or replaces a pin with a stable purpose key, such as `dev-preview`.
 - `pins_remove({ key })` removes a pin; an absent key is already removed.
 
@@ -102,7 +102,7 @@ Create sections and assign pins in one atomic batch:
 
 Omit `section` to preserve an existing assignment (new pins default to unsectioned); use `null` to ungroup. Unknown section keys reject the entire batch. Section titles are trimmed, nonempty, and limited to 80 characters; keys use the same format as pin keys. Renaming a section preserves its position. `sections.remove: ["preview"]` removes that heading and ungroups its surviving members without deleting pins. Explicitly assigning to a section removed in the same batch is invalid; moving to another section is allowed.
 
-Section-only batches are valid. At most 100 section upserts and 100 removals are accepted per batch. Duplicate/conflicting section keys are rejected; pin and section keys use separate namespaces. `sectionResults.upsert` reports `created`, `updated`, or `unchanged` with a section; `sectionResults.remove` reports `removed` with a section or `absent` with a key. All full snapshots include `sections: [{ key, title }]`, and every pin has `section: string | null`. Single-pin tools also return the full snapshot alongside their operation result. Global acknowledgment covers all groups and preserves organization.
+Section-only batches are valid. At most 100 section upserts and 100 removals are accepted per batch. Duplicate/conflicting section keys are rejected; pin and section keys use separate namespaces. `sectionResults.upsert` reports `created`, `updated`, or `unchanged` with a section; `sectionResults.remove` reports `removed` with a section or `absent` with a key. All full snapshots include `sections: [{ key, title, source }]`, and every pin has `section: string | null`. Single-pin tools also return the full snapshot alongside their operation result. Global acknowledgment covers all groups and preserves organization.
 
 ## Notifications and acknowledgment
 
@@ -129,7 +129,7 @@ The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, atten
 
 Pins live on the daemon machine under `~/.local/share/paseo-pins/workspaces/`, in one JSON file per workspace ID. Set the daemon's `PASEO_PINS_DATA_DIR` environment variable to an absolute path to change the root. Restarting the plugin picks up its inherited environment; changing the daemon environment itself may require a later daemon restart.
 
-Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1–5 documents are read without rewriting and migrate to version 6 on the next successful mutation. Existing pins start with Keep off. Version 6 adds user-owned removal protection; version 5 added the current/latest refresh run beside ordered section definitions and nullable pin assignments, preserving pin lifetime IDs, the turn-summary journal, attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 6; retain a data backup if you need to downgrade.
+Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1–6 documents are read without rewriting and migrate to version 7 on the next successful mutation or configuration reconciliation. Pins predating Keep start with Keep off; existing Keep state is preserved. Version 7 adds repository ownership and configuration status; version 6 added user-owned removal protection; version 5 added the current/latest refresh run beside ordered section definitions and nullable pin assignments, preserving pin lifetime IDs, the turn-summary journal, attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 7; retain a data backup if you need to downgrade.
 
 Pins are links, not a secret store. The plugin rejects non-HTTP(S) schemes and embedded URL credentials, but agents must also avoid putting secrets in queries. It does not fetch links, start servers, or create tunnels. A remote preview address must be reachable from the user's device.
 
@@ -177,3 +177,46 @@ Successful refresh totals (including partial results shown as normal totals) dis
 Use the pin icon beside a resource to keep it: outline means not kept, filled means kept. Controls appear on hover or keyboard focus and stay available on touch; kept indicators stay visible. Keep is shared across the workspace and preserves ordering and sections. Agents can update a kept pin’s title, destination, type, or section, but cannot remove it or change its Keep state. A mixed batch containing a protected removal fails atomically, including refresh batches. Only the menu exposes Keep changes, and requests identify the exact pin lifetime to reject stale actions.
 
 Mark as read now sits beside the update message. Keeping a pin neither acknowledges its notification nor creates a chat summary.
+
+
+### Repository configuration
+
+Place a plain JSON file at `.paseo/pins.json` in a workspace checkout to populate pins automatically. Each worktree reads its own file. Static HTTP(S) links only; variable substitution, commands, and automatic `.env` loading are deferred.
+
+```json
+{
+  "version": 1,
+  "sections": [{ "key": "resources", "title": "Resources" }],
+  "pins": [
+    {
+      "key": "handbook",
+      "title": "Project handbook",
+      "url": "https://docs.example.com",
+      "type": "docs",
+      "section": "resources"
+    }
+  ]
+}
+```
+
+`version` and `pins` are required; `sections` is optional. Each pin needs a unique purpose key, title, and URL. Type defaults to `link`; omitted/null section means unsectioned. Every referenced section must be declared in the file. Keys and text limits match agent tools; at most 100 pins and 100 sections, in a regular UTF-8 file up to 256 KiB. Unknown fields/versions, duplicate keys, symlinks, embedded URL credentials, and substitution syntax are rejected.
+
+Configured pins share the normal sections. A muted gear and **Repo** label beside the hostname open a source-information popover on hover, focus, or tap. They have no Keep action. The file owns definitions and takes over matching agent-managed keys, including kept pins, while preserving lifetime, position, and notification state. Configured section names are file-owned; agents can assign their own pins to them. New entries append in file order; reordering file arrays does not reorder existing entries. Removing a configured pin removes it from the list; removing a configured section ungroups its surviving agent-managed members. Historical chat references remain unchanged.
+
+Loading and editing the file never create unread notifications or chat summaries. Agents may still notify meaningful changes independently:
+
+```json
+{
+  "notify": [{
+    "key": "handbook",
+    "instanceId": "<instanceId from pins_list>",
+    "expectedUrl": "https://docs.example.com",
+    "id": "guide-revised",
+    "reason": "The deployment guide now covers the new staging workflow."
+  }]
+}
+```
+
+Pass this to `pins_apply`. The pin must still have the inspected lifetime and destination; each notification requires a message. A consumed event ID is a silent retry within that lifetime, even after a later destination edit. Do not combine standalone `notify` with `upsert`/`remove` for the same key. Existing `upsert.notify` remains available for agent-managed pins. Config-owned definitions reject pin-tool writes and removals atomically; use the file for those changes. Scoped refresh notifications also require the inspected revision and the existing operation ID.
+
+Reconciliation runs on menu/list access and before pin operations or refresh work. Existing two-second polling from mounted header, menu, and chat-summary components notices edits; no filesystem watcher or whole-repository scan is added. Invalid files preserve the last valid configuration and unrelated pins, expose a bounded diagnostic, and pause resource mutations and new refresh runs. Listing and acknowledgment remain available. Fix the file or use Retry to recheck. File deletion is confirmed across two checks at least 500ms apart before removing its owned entries; an inaccessible workspace is never treated as deletion. A valid configuration is committed quietly before a requested agent batch; rejecting that batch does not undo the accepted file edit.

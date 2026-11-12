@@ -30,6 +30,7 @@ export function usePins(hostId: string, workspaceId: string) {
       pins: result.pins,
       sections: result.sections,
       unreadCount: result.unreadCount,
+      config: result.config,
     });
     void cache.invalidateQueries({ queryKey });
   }

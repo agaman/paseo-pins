@@ -1,8 +1,8 @@
 # Future projects for Paseo Pins
 
-Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
+Make workspace resources easier to notice, revisit, and maintain. These project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Projects 5 (agent-powered refresh) and 7 (sections) are implemented and committed. Project 10 (Keep) is implemented, including user-owned removal protection, shared workspace state, and separate acknowledgment controls. Projects 4, 6, 8, and 9 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
+**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Projects 5 (agent-powered refresh) and 7 (sections) are implemented and committed. Project 10 (Keep) is implemented, including user-owned removal protection, shared workspace state, and separate acknowledgment controls. Project 8 (repo configuration) is implemented for static HTTP(S) links; variable substitution remains deferred. Projects 4 and 6 remain briefs. Link health and expiry was removed from the roadmap: pin maintenance should remain agent-mediated, without asking users to triage health indicators. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
 
 ## Project index
 
@@ -16,14 +16,13 @@ Make workspace resources easier to notice, revisit, and maintain. These ten proj
 | [6. Additional destinations](#6-additional-destinations) | Open workspace files, Paseo browser pages, and diffs. |
 | [7. Sections](#7-sections) | Group related resources while retaining a simple list. |
 | [8. Repo configuration](#8-repo-configuration) | Define persistent resources and environment-based destinations in the repository. |
-| [9. Link health and expiry](#9-link-health-and-expiry) | Identify unavailable resources without silently removing them. |
 | [10. Keep this pin](#10-keep-this-pin) | Protect a useful resource from agent pruning. |
 
 ## Shared behavior
 
 Pins remain workspace-scoped and shared by that workspace's agents. Keep the current compact, theme-aware list and atomic single/batch mutation behavior. Users gain acknowledgment, refresh, and protection controls; general user editing remains outside these briefs.
 
-Three concepts stay separate: the pin's resource data, whether its latest meaningful update has been read, and whether its destination is currently available. A health check is not an agent refresh, and a title correction is not automatically a notification.
+The pin's resource data and whether its latest meaningful update has been read remain separate. A title correction is not automatically a notification. Agents investigate relevance and availability while maintaining pins; the roadmap does not include a separate user-facing health-check feature.
 
 **Chat captures a historical reference.** Both summary entries and inline chips retain the title, icon/type, destination, and update identity captured when created. Later pin edits must not silently redirect old messages. Capturing a destination does not archive the web page or file contents behind it.
 
@@ -101,7 +100,7 @@ Add **Refresh pins** to discover links for ongoing work and maintain the list in
 - Apply related changes in batches. Mark only meaningful changes for attention; a refresh with no relevant changes must not create unread pins.
 - Allow section cleanup and regrouping without notifications. Permission requests and the five-minute deadline end the run with a clear limitation; retain unverified pins and already-applied changes.
 
-**Technical basis:** the detailed plan uses supported workspace-agent creation, saved profiles, lifecycle observation, and archival, with an isolated lifecycle check before implementation proceeds. Lightweight health checks in brief 9 do not launch agents.
+**Technical basis:** the detailed plan uses supported workspace-agent creation, saved profiles, lifecycle observation, and archival, with an isolated lifecycle check before implementation proceeds.
 
 ## 6. Additional destinations
 
@@ -127,25 +126,16 @@ Let agents group related resources into optional, flat sections without turning 
 
 ## 8. Repo configuration
 
+**V1 decisions:** populate automatically from a repo config file; support static HTTP(S) links first and defer variable substitution. Configured and agent-managed pins share sections. A small gear and “Repo” label beside the hostname explain ownership in a floating popover on hover or tap; configured pins have no Keep action. Design: **Pins · Repository configuration**. The deferred substitution design retains unavailable pins with an explanation when a variable is missing.
+
 Define persistent pins in a repository config file, with optional environment-variable substitution for workspace-specific destinations.
 
-- The file owns configured pins. Changes and removals go through that file; agent pin tools and refresh/pruning cannot override or remove them. Show their origin and reject conflicting keys clearly.
-- Resolve explicit variable references from the workspace's configured environment. Do not automatically read `.env` files or execute commands. Do not commit resolved workspace values back into the config.
-- Validate the config and resolved destinations. Config errors must not destroy the last valid list or unrelated agent-managed pins; missing variables need a clear unresolved-state indication without exposing variable values in diagnostics.
-- Define stable keys, optional resource types/sections, and an opening target. Reconcile file changes without duplicating pins or repeatedly marking identical entries unread.
+- The file owns configured pins. A config entry takes ownership of an existing agent-managed pin with the same key and replaces its resource definition. Changes and removals go through the file; agent pin tools and refresh/pruning cannot override or remove configured pins. Removing a pin from a valid config removes it from the workspace list.
+- Variable substitution is deferred from v1. A future version must settle a supported workspace-value source; do not automatically read `.env` files or execute commands.
+- Validate the entire config and its destinations before applying changes. Config errors must not destroy the last valid list or unrelated agent-managed pins. Loading or editing the file is quiet; agents may explicitly notify configured resources without changing their definitions.
+- Define stable keys and optional resource types/sections. Config owns the names of declared sections; agents may place their own pins in those sections but cannot rename or remove them. Reconcile file changes without duplicating pins or repeatedly marking identical entries unread.
 
-**Technical shaping:** choose the file location/schema, environment-resolution API, and reconciliation triggers. Config authority governs resource definitions; read state, cached previews, and health results remain runtime state.
-
-## 9. Link health and expiry
-
-Help users identify unavailable or expired resources while retaining the pins for review.
-
-- Run lightweight, cached health checks when the menu opens or the user explicitly requests a check. Do not poll continuously in the background or launch an agent for these checks.
-- Mark unreachable destinations and pins whose declared expiry time has passed. Retain both kinds of pin; health checks never automatically delete them.
-- Distinguish a definite failure from an unknown result, authentication requirement, or unsupported check. A failed probe does not necessarily mean the resource is obsolete.
-- Keep health/expiry separate from unread state and user protection. An agent may use the evidence during a refresh, but removal requires confirmation that an unprotected, agent-managed resource is obsolete.
-
-**Technical shaping:** choose timeouts/cache lifetime, expiry metadata, and where checks run. A daemon-only failure must not be represented as proof that a link is inaccessible from the user's device.
+**Technical proposal:** `.paseo/pins.json` uses version 1, a pins array, and optional sections. Reconcile on menu/tool/refresh access using the existing workspace queue. Config authority governs resource definitions; attention and read state remain runtime state. Static configuration is implemented; variable substitution remains deferred.
 
 ## 10. Keep this pin
 
@@ -155,7 +145,7 @@ Give users a **Keep** control that prevents agents from pruning a resource they 
 
 - Store protection on the workspace pin and show it in tool results and the menu. Support an explicit user action to remove that protection.
 - Enforce protection in the server for single and batch removal, including refresh-agent operations. A batch that tries to remove a protected pin must fail without partially applying other changes.
-- Protection prevents removal; ordinary destination/title maintenance can continue under the existing update rules. Health and expiry indicators still apply.
+- Protection prevents removal; ordinary destination/title maintenance can continue under the existing update rules.
 - Config-defined pins are already protected by file ownership. Make that distinction clear rather than suggesting a user can unkeep a configured pin to let agents delete it.
 
 ## Dependencies and implementation boundaries
@@ -167,7 +157,7 @@ These are small project briefs, not detailed designs. Each can be shaped indepen
 | Stable pin identity, meaningful-update identity, and acknowledgment | Notifications, both chat features, previews |
 | Historical references and a common destination opener | Both chat features, additional destinations |
 | Ownership and protection enforced by the mutation layer | Repo configuration, Keep, refresh, sections |
-| Supported capture/check runtime and network context | Previews, link health |
+| Supported capture runtime and network context | Previews |
 
 The current plugin targets Paseo 0.15.4. Public documentation describes timeline transformers/renderers and appended plugin rows, plus browser navigation on supported surfaces. It does not by itself establish that every required operation is available from our installed header popover or inline chat renderer. Verify the chosen SDK and host release before implementation; newer Paseo releases are acceptable. [Paseo plugin reference](https://paseo.sh/docs/plugins/reference)
 

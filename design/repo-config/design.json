@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "title": "Pins \u00b7 Repository configuration",
+  "kind": "prototype",
+  "description": "Static configured links appear automatically alongside agent-managed pins. Gear icons explain config ownership. Variable substitution is deferred.",
+  "artboards": [
+    {
+      "id": "source-desktop",
+      "title": "Selected \u00b7 Source metadata",
+      "file": "source-desktop.html",
+      "width": 380,
+      "height": 690,
+      "group": "Selected \u00b7 Informational gear"
+    },
+    {
+      "id": "source-details",
+      "title": "Selected \u00b7 Source popover",
+      "file": "source-details.html",
+      "width": 380,
+      "height": 690,
+      "group": "Selected \u00b7 Informational gear"
+    },
+    {
+      "id": "source-mobile",
+      "title": "Selected \u00b7 Mobile dark",
+      "file": "source-mobile.html",
+      "width": 390,
+      "height": 800,
+      "group": "Selected \u00b7 Informational gear"
+    },
+    {
+      "id": "desktop",
+      "title": "Mixed pins \u00b7 Desktop",
+      "file": "desktop.html",
+      "width": 380,
+      "height": 690,
+      "group": "Earlier \u00b7 Action-column gear"
+    },
+    {
+      "id": "details",
+      "title": "Config explanation \u00b7 Desktop",
+      "file": "details.html",
+      "width": 380,
+      "height": 690,
+      "group": "Earlier \u00b7 Action-column gear"
+    },
+    {
+      "id": "mobile",
+      "title": "Mixed pins \u00b7 Mobile",
+      "file": "mobile.html",
+      "width": 390,
+      "height": 800,
+      "group": "Earlier \u00b7 Action-column gear"
+    },
+    {
+      "id": "mobile-dark",
+      "title": "Config explanation \u00b7 Mobile dark",
+      "file": "mobile-dark.html",
+      "width": 390,
+      "height": 800,
+      "group": "Earlier \u00b7 Action-column gear"
+    },
+    {
+      "id": "later-variables",
+      "title": "Later \u00b7 Missing variable",
+      "file": "later-variables.html",
+      "width": 380,
+      "height": 690,
+      "group": "Deferred \u00b7 Not in v1"
+    }
+  ]
+}

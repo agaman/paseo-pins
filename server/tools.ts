@@ -22,7 +22,7 @@ export function createPinTools(store: PinStore, turns: PinTurns) {
     }),
     defineAgentTool({
       name: "pins_apply",
-      description: `Atomically apply workspace pin and section changes. Use sections.upsert to create/rename and sections.remove to ungroup members without deleting them; at most 100 of each. Section-only batches are allowed. Provide upsert links and/or remove keys (at most 100 each, at least one operation). Keys must be unique across both lists. Invalid input or a failed write leaves all pins unchanged. Unmentioned pins are preserved. Returns a status for every operation and the resulting pin list, so a follow-up list call is unnecessary. ${pinGuidance}`,
+      description: `Atomically apply workspace pin and section changes. Use sections.upsert to create/rename and sections.remove to ungroup members without deleting them; at most 100 of each. Section-only batches are allowed. Use notify entries {key, instanceId, expectedUrl, id, reason} for standalone notifications, including configured pins. Provide upsert links and/or remove keys (at most 100 each, or notify entries; at least one operation). Keys must be unique across both lists. Invalid input or a failed write leaves all pins unchanged. Unmentioned pins are preserved. Returns a status for every operation and the resulting pin list, so a follow-up list call is unnecessary. ${pinGuidance}`,
       input: applyPinsSchema,
       async execute(input, context) {
         const workspaceId = workspace(context);

@@ -350,6 +350,7 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
     pins: [],
     sections: [],
     unreadCount: 0,
+    config: { loaded: false, error: null },
   });
   await assert.rejects(async () => run("pins_list", {}, null), /require a Paseo workspace/);
   assert.throws(() => run("pins_upsert", { ...preview, workspaceId: "b" }));
@@ -358,11 +359,13 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
     pins: [],
     sections: [],
     unreadCount: 0,
+    config: { loaded: false, error: null },
   });
   const batch = await run("pins_apply", { upsert: [preview], remove: ["absent"] });
   assert.deepEqual(batch.structuredContent, {
     upsert: [{ status: "created", notified: false, pin: (await store.list("a"))[0] }],
     remove: [{ status: "absent", key: "absent" }],
+    notify: [],
     sectionResults: { upsert: [], remove: [] },
     ...pinSnapshot(await store.list("a")),
   });
@@ -433,11 +436,12 @@ test("legacy pins start read, migrate lazily, and preserve resource timestamps",
   assert.equal((await store.upsert("a", preview)).status, "unchanged");
   assert.equal(await readFile(file, "utf8"), source);
   await store.upsert("a", { ...preview, key: "new-pin" });
-  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 6);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 7);
   assert.deepEqual((await store.list("a"))[0], {
     ...old,
     instanceId: `legacy:${old.key}:${old.createdAt}`,
     kept: false,
+    source: "agent",
     section: null,
     attention: null,
     readAttentionToken: null,

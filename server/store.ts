@@ -6,6 +6,7 @@ import {
   type AcknowledgmentEntries,
   acknowledgmentEntriesSchema,
   applyPinsSchema,
+  emptyRepoState,
   type Pin,
   type PinBatchInput,
   type PinDocument,
@@ -16,6 +17,7 @@ import {
   workspaceIdSchema,
 } from "../shared/pins";
 import { summaryEntryUnread } from "../shared/summaries";
+import { type RepoRead, readRepoConfig, reconcileRepo, requireConfigReady } from "./repo-config";
 import { applySections } from "./sections";
 import { recordChanges, type TurnIdentity } from "./summary-records";
 
@@ -47,6 +49,7 @@ export class PinStore {
   constructor(
     private readonly directory: string,
     private readonly now = () => new Date().toISOString(),
+    private readonly configRoot?: (workspaceId: string) => Promise<string>,
   ) {}
 
   filePath(workspaceId: string): string {
@@ -56,12 +59,48 @@ export class PinStore {
   }
 
   async list(workspaceId: string): Promise<Pin[]> {
-    return (await this.document(workspaceId)).pins;
+    return (await this.current(workspaceId)).pins;
   }
 
   async snapshot(workspaceId: string) {
-    const { pins, sections } = await this.document(workspaceId);
-    return pinSnapshot(pins, sections);
+    const { pins, sections, repo } = await this.current(workspaceId);
+    return pinSnapshot(pins, sections, repo);
+  }
+
+  current(workspaceId: string) {
+    if (this.closed) return this.document(workspaceId);
+    return this.access(workspaceId, async (document) => document);
+  }
+
+  private async access<T>(
+    workspaceId: string,
+    operation: (document: PinDocument) => Promise<T>,
+    signal?: AbortSignal,
+  ) {
+    // Start lookup concurrently, but reserve queue order immediately so shutdown
+    // drains admitted operations and a slower lookup cannot reorder writes.
+    workspaceIdSchema.parse(workspaceId);
+    const resolvedRoot = this.configRoot
+      ? Promise.resolve()
+          .then(() => this.configRoot?.(workspaceId))
+          .catch(() => undefined)
+      : undefined;
+    return this.mutate(workspaceId, async () => {
+      checkAborted(signal);
+      const document = await this.document(workspaceId);
+      if (this.configRoot) {
+        const root = await resolvedRoot;
+        const read: RepoRead = !root
+          ? {
+              kind: "error",
+              message: "Workspace directory is unavailable. Repository pins were preserved.",
+            }
+          : await readRepoConfig(root);
+        checkAborted(signal);
+        if (reconcileRepo(document, read, this.now())) await this.save(document, signal);
+      }
+      return operation(document);
+    });
   }
 
   async document(workspaceId: string): Promise<PinDocument> {
@@ -71,7 +110,15 @@ export class PinStore {
       text = await readFile(file, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return { version: 6, workspaceId, pins: [], sections: [], summaries: [], refresh: null };
+        return {
+          version: 7,
+          workspaceId,
+          pins: [],
+          sections: [],
+          summaries: [],
+          refresh: null,
+          repo: emptyRepoState(),
+        };
       throw new Error("Could not read workspace pins.", { cause: error });
     }
     try {
@@ -90,6 +137,7 @@ export class PinStore {
     return this.apply(workspaceId, { upsert: [input] }, signal, turn).then((result) => ({
       ...result.upsert[0],
       ...pinSnapshot(result.pins, result.sections),
+      config: result.config,
     }));
   }
 
@@ -97,18 +145,22 @@ export class PinStore {
     return this.apply(workspaceId, { remove: [key] }, signal, turn).then((result) => ({
       ...result.remove[0],
       ...pinSnapshot(result.pins, result.sections),
+      config: result.config,
     }));
   }
 
   apply(workspaceId: string, input: PinBatchInput, signal?: AbortSignal, turn?: TurnIdentity) {
     const value = applyPinsSchema.parse(input);
-    return this.mutate(workspaceId, async () => {
-      checkAborted(signal);
-      const document = await this.document(workspaceId);
-      const { changed, result } = this.applyDocument(document, value, signal, turn);
-      if (changed) await this.save(document, signal);
-      return result;
-    });
+    return this.access(
+      workspaceId,
+      async (document) => {
+        checkAborted(signal);
+        const { changed, result } = this.applyDocument(document, value, signal, turn);
+        if (changed) await this.save(document, signal);
+        return result;
+      },
+      signal,
+    );
   }
 
   // Synchronous callback: no host/network work may hold the workspace mutation queue.
@@ -123,18 +175,21 @@ export class PinStore {
     ) => T,
     signal?: AbortSignal,
   ): Promise<T> {
-    return this.mutate(workspaceId, async () => {
-      checkAborted(signal);
-      const document = await this.document(workspaceId);
-      const result = operation(
-        document,
-        (input, turn) =>
-          this.applyDocument(document, applyPinsSchema.parse(input), signal, turn).result,
-      );
-      if (result instanceof Promise) throw new Error("Store transactions must be synchronous.");
-      await this.save(document, signal);
-      return result;
-    });
+    return this.access(
+      workspaceId,
+      async (document) => {
+        checkAborted(signal);
+        const result = operation(
+          document,
+          (input, turn) =>
+            this.applyDocument(document, applyPinsSchema.parse(input), signal, turn).result,
+        );
+        if (result instanceof Promise) throw new Error("Store transactions must be synchronous.");
+        await this.save(document, signal);
+        return result;
+      },
+      signal,
+    );
   }
 
   private applyDocument(
@@ -143,6 +198,20 @@ export class PinStore {
     signal?: AbortSignal,
     turn?: TurnIdentity,
   ) {
+    requireConfigReady(document);
+    for (const key of [...(value.upsert ?? []).map((p) => p.key), ...(value.remove ?? [])]) {
+      if (document.pins.some((pin) => pin.key === key && pin.source === "repo"))
+        throw new Error(
+          `Pin ${key} is owned by .paseo/pins.json. Edit the file or use notify for an update message. The batch was not applied.`,
+        );
+    }
+    for (const key of [
+      ...(value.sections?.upsert ?? []).map((s) => s.key),
+      ...(value.sections?.remove ?? []),
+    ]) {
+      if (document.sections.some((section) => section.key === key && section.source === "repo"))
+        throw new Error(`Section ${key} is owned by .paseo/pins.json. The batch was not applied.`);
+    }
     const previousPins = document.pins;
     if (
       turn &&
@@ -197,6 +266,7 @@ export class PinStore {
         key: entry.key,
         instanceId: previous?.instanceId ?? randomUUID(),
         kept: previous?.kept ?? false,
+        source: "agent",
         title: entry.title,
         url: entry.url,
         type,
@@ -222,17 +292,48 @@ export class PinStore {
       else pins[index] = pin;
       upsert.push({ status: previous ? "updated" : "created", pin, notified });
     }
+    const notify: UpsertResult[] = [];
+    for (const entry of value.notify ?? []) {
+      const index = pins.findIndex(
+        (pin) => pin.key === entry.key && pin.instanceId === entry.instanceId,
+      );
+      const previous = pins[index];
+      if (!previous)
+        throw new Error(`Pin ${entry.key} was removed or replaced. Read the list again.`);
+      if (previous.consumedNotificationIds.includes(entry.id)) {
+        notify.push({ status: "unchanged", pin: previous, notified: false });
+        continue;
+      }
+      if (previous.url !== entry.expectedUrl)
+        throw new Error(`Pin ${entry.key} has a different destination. Read the list again.`);
+      const timestamp = this.now();
+      const pin = {
+        ...previous,
+        updatedAt: timestamp,
+        attention: { token: randomUUID(), notifiedAt: timestamp, reason: entry.reason },
+        consumedNotificationIds: [...previous.consumedNotificationIds, entry.id],
+      };
+      pins[index] = pin;
+      notify.push({ status: "updated", pin, notified: true });
+    }
     const changed =
+      notify.some((result) => result.notified) ||
       ungrouped ||
       sectionResults.upsert.some((result) => result.status !== "unchanged") ||
       sectionResults.remove.some((result) => result.status === "removed") ||
       upsert.some((result) => result.status !== "unchanged") ||
       remove.some((result) => result.status === "removed");
     document.pins = pins;
-    if (changed && turn) recordChanges(document, turn, upsert);
+    if (changed && turn) recordChanges(document, turn, [...upsert, ...notify]);
     return {
       changed,
-      result: { upsert, remove, sectionResults, ...pinSnapshot(pins, document.sections) },
+      result: {
+        upsert,
+        remove,
+        notify,
+        sectionResults,
+        ...pinSnapshot(pins, document.sections, document.repo),
+      },
     };
   }
 
@@ -243,42 +344,51 @@ export class PinStore {
     kept: boolean,
     signal?: AbortSignal,
   ) {
-    return this.mutate(workspaceId, async () => {
-      checkAborted(signal);
-      const document = await this.document(workspaceId);
-      const pin = document.pins.find(
-        (entry) => entry.key === key && entry.instanceId === instanceId,
-      );
-      if (!pin)
-        throw new Error("This pin was removed or replaced. Refresh the list and try again.");
-      if (pin.kept !== kept) {
-        pin.kept = kept;
-        await this.save(document, signal);
-      }
-      return pinSnapshot(document.pins, document.sections);
-    });
+    return this.access(
+      workspaceId,
+      async (document) => {
+        checkAborted(signal);
+        requireConfigReady(document);
+        const pin = document.pins.find(
+          (entry) => entry.key === key && entry.instanceId === instanceId,
+        );
+        if (!pin)
+          throw new Error("This pin was removed or replaced. Refresh the list and try again.");
+        if (pin.source === "repo")
+          throw new Error("This pin is owned by .paseo/pins.json and has no Keep toggle.");
+        if (pin.kept !== kept) {
+          pin.kept = kept;
+          await this.save(document, signal);
+        }
+        return pinSnapshot(document.pins, document.sections, document.repo);
+      },
+      signal,
+    );
   }
 
   acknowledge(workspaceId: string, entries: AcknowledgmentEntries, signal?: AbortSignal) {
     const values = acknowledgmentEntriesSchema.parse(entries);
-    return this.mutate(workspaceId, async () => {
-      checkAborted(signal);
-      const document = await this.document(workspaceId);
-      const pins = document.pins;
-      checkAborted(signal);
-      const results: AcknowledgeResult[] = values.map(({ key, attentionToken }) => {
-        const pin = pins.find((entry) => entry.key === key);
-        if (!pin) return { key, status: "absent" };
-        if (pin.attention?.token !== attentionToken) return { key, status: "stale" };
-        if (pin.readAttentionToken === attentionToken) return { key, status: "already-read" };
-        pin.readAttentionToken = attentionToken;
-        return { key, status: "acknowledged" };
-      });
-      if (results.some((result) => result.status === "acknowledged")) {
-        await this.save(document, signal);
-      }
-      return { results, ...pinSnapshot(pins, document.sections) };
-    });
+    return this.access(
+      workspaceId,
+      async (document) => {
+        checkAborted(signal);
+        const pins = document.pins;
+        checkAborted(signal);
+        const results: AcknowledgeResult[] = values.map(({ key, attentionToken }) => {
+          const pin = pins.find((entry) => entry.key === key);
+          if (!pin) return { key, status: "absent" };
+          if (pin.attention?.token !== attentionToken) return { key, status: "stale" };
+          if (pin.readAttentionToken === attentionToken) return { key, status: "already-read" };
+          pin.readAttentionToken = attentionToken;
+          return { key, status: "acknowledged" };
+        });
+        if (results.some((result) => result.status === "acknowledged")) {
+          await this.save(document, signal);
+        }
+        return { results, ...pinSnapshot(pins, document.sections, document.repo) };
+      },
+      signal,
+    );
   }
 
   async summaries(workspaceId: string) {

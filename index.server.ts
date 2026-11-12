@@ -1,6 +1,6 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { withPinGuidance } from "./server/guidance";
-import { workerLabel } from "./server/refresh-context";
+import { type Paseo, workerLabel } from "./server/refresh-context";
 import { RefreshCoordinator } from "./server/refresh-coordinator";
 import { refreshGuidance } from "./server/refresh-guidance";
 import { createRefreshTools } from "./server/refresh-tools";
@@ -19,7 +19,12 @@ import {
 import { acknowledgeSummary, readSummary } from "./shared/summaries";
 
 export default function contribute(server: PluginServerContext) {
-  const store = new PinStore(dataDirectory());
+  let connection: Paseo | undefined;
+  const store = new PinStore(dataDirectory(), undefined, async (workspaceId) => {
+    const workspace = await connection?.workspaces.ref(workspaceId).refresh();
+    if (!workspace || workspace.id !== workspaceId) throw new Error("Workspace is unavailable.");
+    return workspace.workspaceDirectory;
+  });
   const turns = new PinTurns(store);
   const tools = createPinTools(store, turns);
   const settings = server.registerSettings(refreshSettings);
@@ -27,19 +32,24 @@ export default function contribute(server: PluginServerContext) {
     const state = await settings.read();
     return state.status === "ready" ? state.values.profileId : null;
   });
-  const refreshTools = createRefreshTools(store, turns, refresh);
-  server.handle(startRefresh, ({ workspaceId, requestId }, { paseo }) =>
-    refresh.start(workspaceId, requestId, paseo),
-  );
-  server.handle(readRefresh, async ({ workspaceId }, { paseo }) => {
+  function connect(paseo: Paseo) {
+    connection = paseo;
     refresh.connect(paseo);
+  }
+  const refreshTools = createRefreshTools(store, turns, refresh);
+  server.handle(startRefresh, ({ workspaceId, requestId }, { paseo }) => {
+    connect(paseo);
+    return refresh.start(workspaceId, requestId, paseo);
+  });
+  server.handle(readRefresh, async ({ workspaceId }, { paseo }) => {
+    connect(paseo);
     return {
       run: refreshView((await store.document(workspaceId)).refresh),
       configured: await refresh.configured(paseo),
     };
   });
   server.handle(cancelRefresh, ({ workspaceId, runId }, { paseo }) => {
-    refresh.connect(paseo);
+    connect(paseo);
     return refresh.cancel(workspaceId, runId);
   });
   server.handle(listRefreshProfiles, async (_, { paseo }) => ({
@@ -54,20 +64,22 @@ export default function contribute(server: PluginServerContext) {
   });
   server.handle(listPins, async ({ workspaceId }, { paseo }) => {
     turns.connect(paseo);
-    refresh.connect(paseo);
+    connect(paseo);
     return store.snapshot(workspaceId);
   });
-  server.handle(setPinKept, ({ workspaceId, key, instanceId, kept }) =>
-    store.setKept(workspaceId, key, instanceId, kept),
-  );
-  server.handle(acknowledgePins, ({ workspaceId, entries }) =>
-    store.acknowledge(workspaceId, entries),
-  );
+  server.handle(setPinKept, ({ workspaceId, key, instanceId, kept }, { paseo }) => {
+    connect(paseo);
+    return store.setKept(workspaceId, key, instanceId, kept);
+  });
+  server.handle(acknowledgePins, ({ workspaceId, entries }, { paseo }) => {
+    connect(paseo);
+    return store.acknowledge(workspaceId, entries);
+  });
   server.handle(
     readSummary,
     async ({ workspaceId, agentId, summaryId, offset, limit }, { paseo }) => {
       turns.connect(paseo);
-      refresh.connect(paseo);
+      connect(paseo);
       const summary = await store.summary(workspaceId, agentId, summaryId);
       if (!summary.endedAt || !summary.outcome) throw new Error("Pin summary is unavailable.");
       return {
@@ -85,11 +97,11 @@ export default function contribute(server: PluginServerContext) {
     store.acknowledgeSummary(workspaceId, agentId, summaryId),
   );
   server.addHook("agent.turn.before", async ({ agent, turnId }, { paseo }) => {
-    refresh.connect(paseo);
+    connect(paseo);
     turns.begin(agent, turnId, paseo);
   });
   server.addHook("agent.turn.after", async ({ agent, turnId, outcome }, { paseo }) => {
-    refresh.connect(paseo);
+    connect(paseo);
     await turns
       .end(agent, turnId, outcome, paseo)
       .catch((error) => console.error("Pins summary publication will retry", error));
@@ -105,7 +117,7 @@ export default function contribute(server: PluginServerContext) {
   });
   server.addHook("agent.open.before", async ({ request }, { paseo }) => {
     turns.connect(paseo);
-    refresh.connect(paseo);
+    connect(paseo);
     if (request.workspaceId)
       void turns
         .recoverAgent(request.workspaceId, request.agentId, paseo, true)
