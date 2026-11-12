@@ -327,7 +327,10 @@ test("agent tools use caller workspace and handle a complete pin lifecycle", asy
         agents: {
           ref: () => ({
             refresh: async () => ({
-              agent: { workspaceId, activeTurn: { turnId: "tool-turn", startedAt: null } },
+              agent: {
+                workspaceId,
+                activeTurn: { turnId: "tool-turn", startedAt: "2026-11-12T00:00:00.000Z" },
+              },
             }),
           }),
         },

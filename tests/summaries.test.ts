@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import type { AgentToolContext, PluginHookAgent } from "@getpaseo/plugin/server";
 import { PinStore } from "../server/store";
+import { providerTurnId } from "../server/turn-identity";
 import { PinTurns } from "../server/turns";
 import { isUnread } from "../shared/pins";
 import { summaryEntryUnread } from "../shared/summaries";
@@ -51,6 +52,7 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
 
 function fakePaseo() {
   const active = new Map<string, string>();
+  const starts = new Map<string, string | null>();
   const rows = new Map<string, { id: string; type: "plugin"; pluginId: string }[]>();
   let failAppend = false;
   let appends = 0;
@@ -61,7 +63,12 @@ function fakePaseo() {
           agent: {
             id,
             workspaceId: "workspace",
-            activeTurn: active.has(id) ? { turnId: active.get(id), startedAt: null } : null,
+            activeTurn: active.has(id)
+              ? {
+                  turnId: active.get(id),
+                  startedAt: starts.has(id) ? starts.get(id) : turn().startedAt,
+                }
+              : null,
           },
         }),
         timeline: {
@@ -87,6 +94,7 @@ function fakePaseo() {
   return {
     paseo,
     active,
+    starts,
     rows,
     fail: (value: boolean) => {
       failAppend = value;
@@ -306,7 +314,7 @@ test("missing turn identity rejects before any write; snapshot fallback captures
   assert.deepEqual(await store.list("workspace"), []);
   host.active.set("agent-a", "fallback");
   await turns.run(context, (identity) => store.upsert("workspace", resource, undefined, identity));
-  assert.equal((await store.summaries("workspace"))[0].turnId, "fallback");
+  assert.equal(providerTurnId((await store.summaries("workspace"))[0].turnId), "fallback");
 });
 
 test("failed append leaves committed pins and retries as recovered without duplicate rows", async (t) => {
@@ -371,13 +379,17 @@ test("late and nullable end events do not finalize a newer active turn", async (
   await turns.end(agent(), "turn-a", { kind: "completed" }, host.paseo);
   await turns.end(agent(), null, { kind: "completed" }, host.paseo);
   assert.equal(
-    (await store.summaries("workspace")).find((summary) => summary.turnId === "turn-b")?.endedAt,
+    (await store.summaries("workspace")).find(
+      (summary) => providerTurnId(summary.turnId) === "turn-b",
+    )?.endedAt,
     null,
   );
   host.active.clear();
   await turns.end(agent(), "turn-b", { kind: "failed", error: { message: "Stopped" } }, host.paseo);
   assert.equal(
-    (await store.summaries("workspace")).find((summary) => summary.turnId === "turn-b")?.outcome,
+    (await store.summaries("workspace")).find(
+      (summary) => providerTurnId(summary.turnId) === "turn-b",
+    )?.outcome,
     "interrupted",
   );
 });
@@ -405,8 +417,15 @@ test("read additions still get historical summaries and never acknowledge a late
 
 test("recovery defers to completion received while its host snapshot is in flight", async (t) => {
   const { store, coordinator } = await fixture(t);
-  await store.upsert("workspace", resource, undefined, turn());
   const host = fakePaseo();
+  const turns = coordinator();
+  host.active.set("agent-a", "turn-a");
+  turns.begin(agent(), "turn-a", host.paseo);
+  await turns.run(
+    { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
+    (identity) => store.upsert("workspace", resource, undefined, identity),
+  );
+  host.active.clear();
   let requested = () => {};
   const refreshing = new Promise<void>((resolve) => {
     requested = resolve;
@@ -426,7 +445,6 @@ test("recovery defers to completion received while its host snapshot is in fligh
     };
     return agentRef;
   };
-  const turns = coordinator();
   const recovering = turns.recoverAgent("workspace", "agent-a", host.paseo);
   await refreshing;
   const ending = turns.end(agent(), "turn-a", { kind: "completed" }, host.paseo);
@@ -442,13 +460,215 @@ test("local turn start protects against a temporarily stale inactive host snapsh
   const { store, coordinator } = await fixture(t);
   const host = fakePaseo();
   const turns = coordinator();
+  host.active.set("agent-a", "turn-a");
   turns.begin(agent(), "turn-a", host.paseo);
   await turns.run(
     { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
     (identity) => store.upsert("workspace", resource, undefined, identity),
   );
+  host.active.clear();
   await turns.recoverAgent("workspace", "agent-a", host.paseo);
   assert.equal((await store.summaries("workspace"))[0].endedAt, null);
   await turns.end(agent(), "turn-a", { kind: "completed" }, host.paseo);
   assert.equal((await store.summaries("workspace"))[0].outcome, "completed");
 });
+
+test("a provider can reuse a completed turn ID after restarting its session", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  await store.upsert("workspace", resource, undefined, turn("agent-a", "codex-turn-0"));
+  const historical = await store.finalize("workspace", "agent-a", "codex-turn-0", "completed");
+  const host = fakePaseo();
+  host.active.set("agent-a", "codex-turn-0");
+  const originalRef = host.paseo.agents.ref;
+  host.paseo.agents.ref = (id) => {
+    const ref = originalRef(id);
+    ref.refresh = async () =>
+      ({
+        agent: {
+          workspaceId: "workspace",
+          activeTurn: {
+            turnId: "codex-turn-0",
+            startedAt: "2026-11-12T01:42:01.400Z",
+          },
+        },
+      }) as Awaited<ReturnType<typeof ref.refresh>>;
+    return ref;
+  };
+  const turns = coordinator();
+  const context = { agent: agent(), paseo: host.paseo, signal: new AbortController().signal };
+  await turns.run(context, (identity) =>
+    store.upsert(
+      "workspace",
+      {
+        ...resource,
+        notify: { id: "new-session-update", reason: "Ready after restart" },
+      },
+      undefined,
+      identity,
+    ),
+  );
+  await turns.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
+  const summaries = await store.summaries("workspace");
+  assert.equal(summaries.length, 2);
+  assert.equal(summaries[0].id, historical?.id);
+  assert.equal(summaries[0].endedAt, historical?.endedAt);
+  assert.deepEqual(summaries[0].entries, historical?.entries);
+  assert.notEqual(summaries[0].id, summaries[1].id);
+  assert.equal(summaries[1].startedAt, "2026-11-12T01:42:01.400Z");
+  assert.equal(summaries[1].outcome, "completed");
+  assert.equal(summaries[1].entries[0].reason, "Ready after restart");
+});
+
+test("distinct starts with the same provider ID produce separate completed summaries", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  const host = fakePaseo(),
+    turns = coordinator();
+  const context = { agent: agent(), paseo: host.paseo, signal: new AbortController().signal };
+  host.active.set("agent-a", "codex-turn-0");
+  for (const [i, start] of ["2026-11-12T01:00:00.000Z", "2026-11-12T02:00:00.000Z"].entries()) {
+    host.starts.set("agent-a", start);
+    turns.begin(agent(), "codex-turn-0", host.paseo);
+    await turns.run(context, (identity) =>
+      store.upsert("workspace", { ...resource, key: `pin-${i}` }, undefined, identity),
+    );
+    await turns.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
+  }
+  const summaries = await store.summaries("workspace");
+  assert.equal(summaries.length, 2);
+  assert.ok(summaries.every((s) => s.outcome === "completed"));
+  assert.equal(new Set(summaries.map((s) => s.id)).size, 2);
+  assert.equal(host.appends(), 2);
+});
+
+test("plugin reload during a turn reuses the exact summary and deduplicates notifications", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  const host = fakePaseo(),
+    first = coordinator();
+  host.active.set("agent-a", "codex-turn-0");
+  host.starts.set("agent-a", "2026-11-12T02:00:00.000Z");
+  const context = { agent: agent(), paseo: host.paseo, signal: new AbortController().signal };
+  first.begin(agent(), "codex-turn-0", host.paseo);
+  await first.run(context, (identity) => store.upsert("workspace", resource, undefined, identity));
+  const input = { ...resource, notify: { id: "event", reason: "Ready" } };
+  await first.run(context, (identity) => store.upsert("workspace", input, undefined, identity));
+  const [before] = await store.summaries("workspace");
+  await first.close();
+  const resumed = coordinator();
+  await resumed.recoverAgent("workspace", "agent-a", host.paseo);
+  const retried = await resumed.run(context, (identity) =>
+    store.upsert("workspace", input, undefined, identity),
+  );
+  assert.equal(retried.notified, false);
+  assert.deepEqual(await store.summaries("workspace"), [before]);
+  await resumed.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
+  assert.equal(host.appends(), 1);
+  assert.equal((await store.summaries("workspace"))[0].outcome, "completed");
+});
+
+test("recovery distinguishes an abandoned instance from a new instance with the same ID", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  const host = fakePaseo();
+  host.active.set("agent-a", "codex-turn-0");
+  host.starts.set("agent-a", "2026-11-12T01:00:00.000Z");
+  const context = { agent: agent(), paseo: host.paseo, signal: new AbortController().signal };
+  const first = coordinator();
+  await first.run(context, (identity) => store.upsert("workspace", resource, undefined, identity));
+  await first.close();
+  host.starts.set("agent-a", "2026-11-12T02:00:00.000Z");
+  const second = coordinator();
+  await second.run(context, (identity) =>
+    store.upsert("workspace", { ...resource, key: "second" }, undefined, identity),
+  );
+  await second.recoverAgent("workspace", "agent-a", host.paseo);
+  const summaries = await store.summaries("workspace");
+  assert.equal(summaries[0].outcome, "interrupted");
+  assert.equal(summaries[1].outcome, null);
+  await second.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
+  assert.equal((await store.summaries("workspace"))[1].outcome, "completed");
+});
+
+test("missing start time fails without writing and a later valid snapshot is retryable", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  const host = fakePaseo(),
+    turns = coordinator();
+  host.active.set("agent-a", "codex-turn-0");
+  host.starts.set("agent-a", null);
+  const context = { agent: agent(), paseo: host.paseo, signal: new AbortController().signal };
+  const write = () =>
+    turns.run(context, (identity) => store.upsert("workspace", resource, undefined, identity));
+  await assert.rejects(write(), /start time/);
+  assert.deepEqual(await store.list("workspace"), []);
+  host.starts.set("agent-a", "2026-11-12T02:00:00.000Z");
+  await write();
+  assert.equal((await store.list("workspace")).length, 1);
+});
+
+test("recovery preserves an active summary when its host start time is unavailable", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  const host = fakePaseo();
+  host.active.set("agent-a", "codex-turn-0");
+  const first = coordinator();
+  await first.run(
+    { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
+    (identity) => store.upsert("workspace", resource, undefined, identity),
+  );
+  await first.close();
+  const resumed = coordinator();
+  for (const startedAt of [null, "invalid"]) {
+    host.starts.set("agent-a", startedAt);
+    await resumed.recoverAgent("workspace", "agent-a", host.paseo);
+    assert.equal((await store.summaries("workspace"))[0].endedAt, null);
+    assert.equal(host.appends(), 0);
+  }
+  host.active.clear();
+  await resumed.recoverAgent("workspace", "agent-a", host.paseo);
+  assert.equal((await store.summaries("workspace"))[0].outcome, "interrupted");
+});
+
+test("upgrading during an open legacy turn preserves its journal ID", async (t) => {
+  const { store, coordinator } = await fixture(t);
+  // Legacy hook receipt was a few milliseconds after the host's actual turn start.
+  const legacy = { ...turn(), startedAt: "2026-11-11T00:00:00.010Z" };
+  await store.upsert("workspace", resource, undefined, legacy);
+  const [before] = await store.summaries("workspace");
+  const host = fakePaseo();
+  host.active.set("agent-a", "turn-a");
+  const turns = coordinator();
+  await turns.run(
+    { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
+    (identity) => store.upsert("workspace", { ...resource, key: "second" }, undefined, identity),
+  );
+  const summaries = await store.summaries("workspace");
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].id, before.id);
+  assert.equal(summaries[0].entries.length, 2);
+  await turns.end(agent(), "turn-a", { kind: "completed" }, host.paseo);
+  assert.equal((await store.summaries("workspace"))[0].outcome, "completed");
+});
+
+for (const observedBegin of [true, false]) {
+  test(`a reused ID without pin calls cannot complete abandoned work (${observedBegin ? "observed begin" : "reloaded"})`, async (t) => {
+    const { store, coordinator } = await fixture(t);
+    const host = fakePaseo();
+    host.active.set("agent-a", "codex-turn-0");
+    const first = coordinator();
+    await first.run(
+      { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
+      (identity) => store.upsert("workspace", resource, undefined, identity),
+    );
+    await first.close();
+    host.starts.set("agent-a", "2026-11-12T02:00:00.000Z");
+    const resumed = coordinator();
+    if (observedBegin) {
+      resumed.begin(agent(), "codex-turn-0", host.paseo);
+      await resumed.recoverAgent("workspace", "agent-a", host.paseo);
+      assert.equal((await store.summaries("workspace"))[0].outcome, "interrupted");
+    }
+    host.active.clear();
+    await resumed.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
+    const [summary] = await store.summaries("workspace");
+    assert.equal(summary.outcome, "interrupted");
+    assert.equal(summary.recovered, true);
+    assert.equal(host.appends(), 1);
+  });
+}

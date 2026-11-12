@@ -8,10 +8,14 @@ import type { TurnSummary } from "../shared/pins";
 import type { PinStore } from "./store";
 import type { TurnIdentity } from "./summary-records";
 
+import { matchesHostTurn, providerTurnId, turnInstance } from "./turn-identity";
+
+type ActiveTurn = { turnId: string | null; captured?: Promise<TurnIdentity> };
+
 type Paseo = PluginHandlerContext["paseo"];
 
 export class PinTurns {
-  private readonly active = new Map<string, TurnIdentity>();
+  private readonly active = new Map<string, ActiveTurn>();
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly verified = new Set<string>();
   private readonly ending = new Set<string>();
@@ -31,32 +35,25 @@ export class PinTurns {
   }
 
   begin(agent: PluginHookAgent, turnId: string | null, paseo: Paseo) {
-    if (turnId)
-      this.active.set(agent.id, { agentId: agent.id, turnId, startedAt: new Date().toISOString() });
+    if (turnId) this.active.set(agent.id, { turnId });
     else this.active.delete(agent.id);
     this.connect(paseo);
   }
 
   run<T>(context: AgentToolContext, operation: (turn: TurnIdentity) => Promise<T>): Promise<T> {
     // Capture immediately, before either the per-agent or workspace write queue.
-    const known = this.active.get(context.agent.id);
-    const captured = known
-      ? Promise.resolve(known)
-      : context.paseo.agents
-          .ref(context.agent.id)
-          .refresh()
-          .then((result) => {
-            const turn = result?.agent.activeTurn;
-            if (!turn?.turnId || result?.agent.workspaceId !== context.agent.workspaceId)
-              throw new Error(
-                "Could not identify the active turn. Retry the pin change in an active agent turn.",
-              );
-            return {
-              agentId: context.agent.id,
-              turnId: turn.turnId,
-              startedAt: turn.startedAt ?? new Date().toISOString(),
-            };
-          });
+    let known = this.active.get(context.agent.id);
+    if (!known) {
+      known = { turnId: null };
+      this.active.set(context.agent.id, known);
+    }
+    const slot = known;
+    const captured = slot.captured ?? this.capture(context, slot.turnId);
+    slot.captured = captured;
+    // Failed snapshots are retryable, but a successful identity stays frozen for the turn.
+    void captured.catch(() => {
+      if (slot.captured === captured) slot.captured = undefined;
+    });
     // Attach rejection handling immediately even if another operation holds the queue.
     const ready = captured.then(
       (turn) => ({ turn }),
@@ -80,7 +77,19 @@ export class PinTurns {
         ? this.recoverAgent(agent.workspaceId, agent.id, paseo)
         : Promise.resolve();
     }
-    if (this.active.get(agent.id)?.turnId === turnId) this.active.delete(agent.id);
+    const active = this.active.get(agent.id);
+    const captured =
+      active && (active.turnId === null || active.turnId === turnId) ? active.captured : undefined;
+    if (active && (active.turnId === null || active.turnId === turnId))
+      this.active.delete(agent.id);
+    if (!captured) {
+      this.connect(paseo);
+      // A raw end ID cannot distinguish an abandoned instance from a later turn
+      // that made no pin changes. Recover without assigning this event's outcome.
+      return agent.workspaceId
+        ? this.recoverAgent(agent.workspaceId, agent.id, paseo)
+        : Promise.resolve();
+    }
     // Recovery may already be waiting on a host snapshot when this event arrives.
     // Reserve the known outcome until its queued finalization has completed.
     const identity = JSON.stringify([agent.id, turnId]);
@@ -88,10 +97,13 @@ export class PinTurns {
     const result = this.enqueue(agent.id, async () => {
       try {
         if (!agent.workspaceId) return;
+        const turn = await captured.catch(() => undefined);
+        const instanceId = turn?.turnId;
+        if (!instanceId || providerTurnId(instanceId) !== turnId) return;
         const summary = await this.store.finalize(
           agent.workspaceId,
           agent.id,
-          turnId,
+          instanceId,
           outcome.kind === "completed" ? "completed" : "interrupted",
         );
         if (summary?.entries.length) await this.publish(agent.workspaceId, summary, paseo, false);
@@ -111,13 +123,15 @@ export class PinTurns {
       if (!summaries.length) return;
       const agent = await paseo.agents.ref(agentId).refresh();
       if (!agent || agent.agent.workspaceId !== workspaceId) return;
+      const local = this.active.get(agentId);
+      const localIdentity = await local?.captured?.catch(() => undefined);
       for (let summary of summaries) {
         if (!summary.endedAt) {
           // Local lifecycle events can be newer than the awaited host snapshot.
           if (
-            this.active.get(agentId)?.turnId === summary.turnId ||
-            this.ending.has(JSON.stringify([agentId, summary.turnId])) ||
-            agent.agent.activeTurn?.turnId === summary.turnId
+            localIdentity?.turnId === summary.turnId ||
+            this.ending.has(JSON.stringify([agentId, providerTurnId(summary.turnId)])) ||
+            matchesHostTurn(summary, agent.agent.activeTurn)
           )
             continue;
           const finalized = await this.store.finalize(
@@ -143,6 +157,36 @@ export class PinTurns {
     clearInterval(this.timer);
     await this.recovery;
     await Promise.allSettled([...this.queues.values()]);
+  }
+
+  private async capture(context: AgentToolContext, expected: string | null): Promise<TurnIdentity> {
+    const snapshot = await context.paseo.agents.ref(context.agent.id).refresh();
+    const active = snapshot?.agent.activeTurn;
+    if (
+      !active?.turnId ||
+      !active.startedAt ||
+      !Number.isFinite(Date.parse(active.startedAt)) ||
+      snapshot?.agent.workspaceId !== context.agent.workspaceId ||
+      (expected !== null && expected !== active.turnId)
+    ) {
+      throw new Error(
+        "Could not identify the active turn and its start time. Retry the pin change in an active agent turn.",
+      );
+    }
+    const identity = turnInstance(context.agent.id, active.turnId, active.startedAt);
+    // Keep an existing legacy turn's journal identity when upgrading mid-turn.
+    const summaries = await this.store.summaries(snapshot.agent.workspaceId as string);
+    const legacy = summaries.filter(
+      (s) =>
+        s.agentId === context.agent.id && s.turnId === active.turnId && matchesHostTurn(s, active),
+    );
+    return legacy.length === 1
+      ? {
+          agentId: context.agent.id,
+          turnId: legacy[0].turnId,
+          startedAt: legacy[0].startedAt,
+        }
+      : identity;
   }
 
   private scheduleRecovery() {
