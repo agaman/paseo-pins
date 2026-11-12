@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These ten project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Project 7 (sections) is implemented for working-feature review; comprehensive validation remains pending approval. Projects 4–6 and 8–10 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
+**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Project 7 (sections) is implemented for working-feature review; comprehensive validation remains pending approval. Project 5 (agent-powered refresh) is implemented for working-feature review; comprehensive validation remains pending approval. Projects 4, 6, and 8–10 remain briefs. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
 
 ## Project index
 
@@ -12,7 +12,7 @@ Make workspace resources easier to notice, revisit, and maintain. These ten proj
 | [2. After-turn chat summaries](#2-after-turn-chat-summaries) | See the resources produced or updated by an agent turn. |
 | [3. Inline pin references](#3-inline-pin-references) | Reference a pin naturally within a chat message. |
 | [4. Thumbnail previews](#4-thumbnail-previews) | Recognize a web resource before opening it. |
-| [5. Agent-powered refresh](#5-agent-powered-refresh) | Reevaluate the existing list without interrupting the main conversation. |
+| [5. Agent-powered refresh](#5-agent-powered-refresh) | Discover useful links from ongoing work and maintain the list without interrupting the main conversation. |
 | [6. Additional destinations](#6-additional-destinations) | Open workspace files, Paseo browser pages, and diffs. |
 | [7. Sections](#7-sections) | Group related resources while retaining a simple list. |
 | [8. Repo configuration](#8-repo-configuration) | Define persistent resources and environment-based destinations in the repository. |
@@ -90,14 +90,18 @@ Show a cached thumbnail when the user hovers over a web pin, helping them recogn
 
 ## 5. Agent-powered refresh
 
-Add **Refresh pins** to reevaluate the current list in a separate temporary agent, leaving the main conversation uninterrupted.
+Implementation plan: [Build and refresh pins from ongoing workspace work](plans/05-agent-refresh.md). Design: **Pins · Agent refresh**. Refresh discovers a small curated set from recent workspace conversations, using repository inspection only to fill context gaps, and works with zero pins. Apply changes automatically, modify only pins and sections (no resource repairs), and follow the workspace’s most recently active eligible agent’s provider and model automatically with an optional saved-profile override in Pins settings. Allow section cleanup/regrouping, stop with a limitation instead of waiting for permission, and enforce a five-minute limit. The selected compact result row sits beneath the toolbar, with details expanding in place. Implementation is ready for working-feature review.
 
-- Review existing pins, update destinations when necessary, and prune resources confirmed obsolete. Discovering new resources is outside this refresh action's scope.
+Add **Refresh pins** to discover links for ongoing work and maintain the list in a separate temporary agent, leaving the main conversation uninterrupted.
+
+- Prioritize recent workspace conversations; inspect the repository only when they leave a specific context gap. Add a small curated set of current links, including on first use with no pins. Avoid a general repository bookmark inventory.
+- Review existing pins, update destinations when necessary, and prune resources confirmed obsolete. Deduplicate discoveries against the current list and keep new pins read.
 - Respect config ownership and user protection: refresh must preserve config-defined and kept pins. Unreachability or expiry alone is not sufficient evidence for deletion.
 - Show progress and a useful completion/error result; prevent duplicate refresh agents from repeated clicks. Give the agent workspace context and the pin-maintenance instructions, and retire it after completion.
 - Apply related changes in batches. Mark only meaningful changes for attention; a refresh with no relevant changes must not create unread pins.
+- Allow section cleanup and regrouping without notifications. Permission requests and the five-minute deadline end the run with a clear limitation; retain unverified pins and already-applied changes.
 
-**Technical shaping:** select the temporary agent's provider/profile and permissions, define cancellation/time limits, and confirm its supported lifecycle. Lightweight health checks in brief 9 do not launch agents.
+**Technical basis:** the detailed plan uses supported workspace-agent creation, saved profiles, lifecycle observation, and archival, with an isolated lifecycle check before implementation proceeds. Lightweight health checks in brief 9 do not launch agents.
 
 ## 6. Additional destinations
 

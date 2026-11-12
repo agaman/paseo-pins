@@ -64,14 +64,14 @@ export class PinStore {
     return pinSnapshot(pins, sections);
   }
 
-  private async document(workspaceId: string): Promise<PinDocument> {
+  async document(workspaceId: string): Promise<PinDocument> {
     const file = this.filePath(workspaceId);
     let text: string;
     try {
       text = await readFile(file, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return { version: 4, workspaceId, pins: [], sections: [], summaries: [] };
+        return { version: 5, workspaceId, pins: [], sections: [], summaries: [], refresh: null };
       throw new Error("Could not read workspace pins.", { cause: error });
     }
     try {
@@ -101,100 +101,134 @@ export class PinStore {
   }
 
   apply(workspaceId: string, input: PinBatchInput, signal?: AbortSignal, turn?: TurnIdentity) {
-    // Validate every operation before entering the workspace's mutation queue.
     const value = applyPinsSchema.parse(input);
     return this.mutate(workspaceId, async () => {
       checkAborted(signal);
-      // Read inside the queue so changes from other agents are retained.
       const document = await this.document(workspaceId);
-      const previousPins = document.pins;
-      if (
-        turn &&
-        document.summaries.some(
-          (s) => s.agentId === turn.agentId && s.turnId === turn.turnId && s.endedAt,
-        )
-      )
-        throw new Error("This turn has ended. Retry in a new turn.");
-      checkAborted(signal);
-      const remove: RemoveResult[] = (value.remove ?? []).map((key) => {
-        const pin = previousPins.find((entry) => entry.key === key);
-        return pin ? { status: "removed", pin } : { status: "absent", key };
-      });
-      const sectionResults = applySections(document, value);
-      const sectionKeys = new Set(document.sections.map((section) => section.key));
-      const removedKeys = new Set(value.remove);
-      let ungrouped = false;
-      const pins = previousPins
-        .filter((pin) => !removedKeys.has(pin.key))
-        .map((pin) => {
-          if (pin.section === null || sectionKeys.has(pin.section)) return pin;
-          ungrouped = true;
-          return { ...pin, section: null, updatedAt: this.now() };
-        });
-      const upsert: UpsertResult[] = [];
-      for (const entry of value.upsert ?? []) {
-        const index = pins.findIndex((pin) => pin.key === entry.key);
-        const previous = pins[index];
-        const section = entry.section === undefined ? (previous?.section ?? null) : entry.section;
-        if (section !== null && !sectionKeys.has(section))
-          throw new Error(`Unknown section: ${section}.`);
-        const type = entry.type ?? previous?.type ?? "link";
-        const notified = Boolean(
-          previous && entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id),
-        );
-        if (
-          !notified &&
-          previous?.title === entry.title &&
-          previous.url === entry.url &&
-          previous.type === type &&
-          previous.section === section
-        ) {
-          upsert.push({ status: "unchanged", pin: previous, notified: false });
-          continue;
-        }
-        const timestamp = this.now();
-        const pin: Pin = {
-          key: entry.key,
-          instanceId: previous?.instanceId ?? randomUUID(),
-          title: entry.title,
-          url: entry.url,
-          type,
-          section,
-          createdAt: previous?.createdAt ?? timestamp,
-          updatedAt: timestamp,
-          attention: notified
-            ? {
-                token: randomUUID(),
-                notifiedAt: timestamp,
-                ...(entry.notify?.reason ? { reason: entry.notify.reason } : {}),
-              }
-            : (previous?.attention ?? null),
-          readAttentionToken: previous?.readAttentionToken ?? null,
-          consumedNotificationIds: [
-            ...(previous?.consumedNotificationIds ?? []),
-            // Consume a creation-time notification ID without notifying: retrying the
-            // same create request must not turn it into a new update.
-            ...((!previous || notified) && entry.notify ? [entry.notify.id] : []),
-          ],
-        };
-        if (index < 0) pins.push(pin);
-        else pins[index] = pin;
-        upsert.push({ status: previous ? "updated" : "created", pin, notified });
-      }
-      const changed =
-        ungrouped ||
-        sectionResults.upsert.some((result) => result.status !== "unchanged") ||
-        sectionResults.remove.some((result) => result.status === "removed") ||
-        upsert.some((result) => result.status !== "unchanged") ||
-        remove.some((result) => result.status === "removed");
-      // One atomic rename commits the entire batch; no-op batches never write.
-      if (changed) {
-        document.pins = pins;
-        if (turn) recordChanges(document, turn, upsert);
-        await this.save(document, signal);
-      }
-      return { upsert, remove, sectionResults, ...pinSnapshot(pins, document.sections) };
+      const { changed, result } = this.applyDocument(document, value, signal, turn);
+      if (changed) await this.save(document, signal);
+      return result;
     });
+  }
+
+  // Synchronous callback: no host/network work may hold the workspace mutation queue.
+  transaction<T>(
+    workspaceId: string,
+    operation: (
+      document: PinDocument,
+      apply: (
+        input: PinBatchInput,
+        turn?: TurnIdentity,
+      ) => ReturnType<PinStore["applyDocument"]>["result"],
+    ) => T,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    return this.mutate(workspaceId, async () => {
+      checkAborted(signal);
+      const document = await this.document(workspaceId);
+      const result = operation(
+        document,
+        (input, turn) =>
+          this.applyDocument(document, applyPinsSchema.parse(input), signal, turn).result,
+      );
+      if (result instanceof Promise) throw new Error("Store transactions must be synchronous.");
+      await this.save(document, signal);
+      return result;
+    });
+  }
+
+  private applyDocument(
+    document: PinDocument,
+    value: PinBatchInput,
+    signal?: AbortSignal,
+    turn?: TurnIdentity,
+  ) {
+    const previousPins = document.pins;
+    if (
+      turn &&
+      document.summaries.some(
+        (s) => s.agentId === turn.agentId && s.turnId === turn.turnId && s.endedAt,
+      )
+    )
+      throw new Error("This turn has ended. Retry in a new turn.");
+    checkAborted(signal);
+    const remove: RemoveResult[] = (value.remove ?? []).map((key) => {
+      const pin = previousPins.find((entry) => entry.key === key);
+      return pin ? { status: "removed", pin } : { status: "absent", key };
+    });
+    const sectionResults = applySections(document, value);
+    const sectionKeys = new Set(document.sections.map((section) => section.key));
+    const removedKeys = new Set(value.remove);
+    let ungrouped = false;
+    const pins = previousPins
+      .filter((pin) => !removedKeys.has(pin.key))
+      .map((pin) => {
+        if (pin.section === null || sectionKeys.has(pin.section)) return pin;
+        ungrouped = true;
+        return { ...pin, section: null, updatedAt: this.now() };
+      });
+    const upsert: UpsertResult[] = [];
+    for (const entry of value.upsert ?? []) {
+      const index = pins.findIndex((pin) => pin.key === entry.key);
+      const previous = pins[index];
+      const section = entry.section === undefined ? (previous?.section ?? null) : entry.section;
+      if (section !== null && !sectionKeys.has(section))
+        throw new Error(`Unknown section: ${section}.`);
+      const type = entry.type ?? previous?.type ?? "link";
+      const notified = Boolean(
+        previous && entry.notify && !previous.consumedNotificationIds.includes(entry.notify.id),
+      );
+      if (
+        !notified &&
+        previous?.title === entry.title &&
+        previous.url === entry.url &&
+        previous.type === type &&
+        previous.section === section
+      ) {
+        upsert.push({ status: "unchanged", pin: previous, notified: false });
+        continue;
+      }
+      const timestamp = this.now();
+      const pin: Pin = {
+        key: entry.key,
+        instanceId: previous?.instanceId ?? randomUUID(),
+        title: entry.title,
+        url: entry.url,
+        type,
+        section,
+        createdAt: previous?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+        attention: notified
+          ? {
+              token: randomUUID(),
+              notifiedAt: timestamp,
+              ...(entry.notify?.reason ? { reason: entry.notify.reason } : {}),
+            }
+          : (previous?.attention ?? null),
+        readAttentionToken: previous?.readAttentionToken ?? null,
+        consumedNotificationIds: [
+          ...(previous?.consumedNotificationIds ?? []),
+          // Consume a creation-time notification ID without notifying: retrying the
+          // same create request must not turn it into a new update.
+          ...((!previous || notified) && entry.notify ? [entry.notify.id] : []),
+        ],
+      };
+      if (index < 0) pins.push(pin);
+      else pins[index] = pin;
+      upsert.push({ status: previous ? "updated" : "created", pin, notified });
+    }
+    const changed =
+      ungrouped ||
+      sectionResults.upsert.some((result) => result.status !== "unchanged") ||
+      sectionResults.remove.some((result) => result.status === "removed") ||
+      upsert.some((result) => result.status !== "unchanged") ||
+      remove.some((result) => result.status === "removed");
+    document.pins = pins;
+    if (changed && turn) recordChanges(document, turn, upsert);
+    return {
+      changed,
+      result: { upsert, remove, sectionResults, ...pinSnapshot(pins, document.sections) },
+    };
   }
 
   acknowledge(workspaceId: string, entries: AcknowledgmentEntries, signal?: AbortSignal) {
@@ -299,7 +333,7 @@ export class PinStore {
         const document = pinDocumentSchema.parse(
           JSON.parse(await readFile(path.join(this.directory, "workspaces", file), "utf8")),
         );
-        if (document.summaries.length) ids.push(document.workspaceId);
+        if (document.summaries.length || document.refresh) ids.push(document.workspaceId);
       } catch (error) {
         console.error("Pins summary recovery skipped an unreadable document", file, error);
       }

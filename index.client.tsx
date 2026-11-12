@@ -1,14 +1,32 @@
 import type {
+  PluginButtonContentProps,
   PluginButtonIconProps,
   PluginButtonRegistration,
   PluginClientContext,
 } from "@getpaseo/plugin/client";
 import { PinsHeader } from "./client/pins-header";
 import { PinsPopover } from "./client/pins-popover";
+import { RefreshSettings } from "./client/refresh-settings";
 import { TurnSummary } from "./client/turn-summary";
 import { summaryReferenceSchema } from "./shared/summaries";
 
 export default function contribute(client: PluginClientContext) {
+  const removeSettings = client.addSettingsScreen({
+    id: "refresh",
+    title: "Pins",
+    icon: "Pin",
+    Component: RefreshSettings,
+  });
+  // biome-ignore lint/correctness/noComponentHookFactories: Stable contribution component created once, outside rendering.
+  const Popover = (props: PluginButtonContentProps) => (
+    <PinsPopover
+      {...props}
+      openSettings={() => {
+        props.close();
+        client.openSettings("refresh");
+      }}
+    />
+  );
   const removeRenderer = client.addTimelineRenderer({
     kind: "turn-summary",
     version: 1,
@@ -46,7 +64,7 @@ export default function contribute(client: PluginClientContext) {
           title: "Pins",
           label: "Pins",
           icon: HeaderIcon,
-          behavior: { kind: "popover", Content: PinsPopover },
+          behavior: { kind: "popover", Content: Popover },
         },
       }),
     );
@@ -85,6 +103,7 @@ export default function contribute(client: PluginClientContext) {
 
   return () => {
     removeRenderer();
+    removeSettings();
     lifetime.abort();
     release?.();
     for (const id of registrations.keys()) remove(id);

@@ -5,13 +5,25 @@ import { type AcknowledgmentEntries, isUnread, type Pin } from "../shared/pins";
 import { groupPins } from "../shared/sections";
 import { MenuAction } from "./menu-action";
 import { PinRow } from "./pin-row";
+import { RefreshResult } from "./refresh-result";
 import { usePins } from "./use-pins";
+import { useRefresh } from "./use-refresh";
 import { useTouchControls } from "./web";
 
 type FailedAcknowledgment = { entries: AcknowledgmentEntries; opened: boolean };
 
-export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginButtonContentProps) {
+export function PinsPopover({
+  workspaceId,
+  host,
+  theme,
+  layout,
+  close,
+  openSettings,
+}: PluginButtonContentProps & { openSettings: () => void }) {
   const { query, markRead } = usePins(host.id, workspaceId);
+  const refresh = useRefresh(host.id, workspaceId);
+  const run = refresh.query.data?.run;
+  const refreshing = Boolean(run && (!run.outcome || run.cleanupPending));
   const touch = useTouchControls();
   const native = layout.platform !== "web";
   // Paseo owns the background. Match its surface only for the unread dot's cutout.
@@ -99,7 +111,7 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
           marginVertical: -12,
         }}
       >
-        {Boolean(query.data?.pins.length) && (
+        {
           <View
             testID="pins-actions"
             style={{
@@ -119,6 +131,19 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
             }}
           >
             <MenuAction
+              icon="RefreshCw"
+              label="Refresh pins"
+              tooltip="Refresh pins"
+              theme={theme}
+              touch={touch}
+              disabled={refresh.busy || refreshing || refresh.query.isPending}
+              busy={refresh.busy || refreshing}
+              onPress={() => {
+                if (refresh.query.data?.configured) void refresh.act();
+                else openSettings();
+              }}
+            />
+            <MenuAction
               icon="ListChecks"
               label="Mark all pins as read"
               tooltip="Mark as read"
@@ -130,6 +155,30 @@ export function PinsPopover({ workspaceId, host, theme, layout, close }: PluginB
                 void read(unreadEntries);
               }}
             />
+          </View>
+        }
+        {run && (
+          <RefreshResult
+            key={run.id}
+            run={run}
+            hostId={host.id}
+            workspaceId={workspaceId}
+            theme={theme}
+            touch={touch}
+            busy={refresh.busy}
+            cancel={() => {
+              void refresh.act(run.id);
+            }}
+          />
+        )}
+        {(refresh.error || refresh.query.isError) && (
+          <View style={{ padding: 8, gap: 5 }}>
+            <Text accessibilityRole="alert" style={muted}>
+              {refresh.error ?? "Couldn’t load refresh status."}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={openSettings}>
+              <Text style={foreground}>Pins settings</Text>
+            </Pressable>
           </View>
         )}
         {query.isPending && <Text style={muted}>Loading pins…</Text>}

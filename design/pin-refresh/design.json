@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "title": "Pins · Agent refresh",
+  "kind": "prototype",
+  "description": "Discover a small curated set from recent workspace conversations and maintain existing pins. Refresh works with an empty list; repository inspection only fills context gaps.",
+  "artboards": [
+    {
+      "id": "running",
+      "title": "Refreshing",
+      "file": "running.html",
+      "width": 420,
+      "height": 700,
+      "group": "Menu flow"
+    },
+    {
+      "id": "complete",
+      "title": "Result · Collapsed",
+      "file": "complete.html",
+      "width": 420,
+      "height": 700,
+      "group": "Menu flow"
+    },
+    {
+      "id": "details",
+      "title": "Result · Expanded",
+      "file": "details.html",
+      "width": 420,
+      "height": 900,
+      "group": "Menu flow"
+    },
+    {
+      "id": "unchanged",
+      "title": "No changes",
+      "file": "unchanged.html",
+      "width": 420,
+      "height": 700,
+      "group": "Other outcomes"
+    },
+    {
+      "id": "partial",
+      "title": "Some links unverified",
+      "file": "partial.html",
+      "width": 420,
+      "height": 690,
+      "group": "Other outcomes"
+    },
+    {
+      "id": "mobile-light",
+      "title": "Mobile · Light",
+      "file": "mobile-light.html",
+      "width": 390,
+      "height": 760,
+      "group": "Mobile"
+    },
+    {
+      "id": "mobile-dark",
+      "title": "Mobile · Dark",
+      "file": "mobile-dark.html",
+      "width": 390,
+      "height": 760,
+      "group": "Mobile"
+    },
+    {
+      "id": "settings",
+      "title": "Refresh profile",
+      "file": "settings.html",
+      "width": 620,
+      "height": 550,
+      "group": "Setup"
+    },
+    {
+      "id": "permission",
+      "title": "Permission required",
+      "file": "permission.html",
+      "width": 420,
+      "height": 900,
+      "group": "Refresh outcomes"
+    },
+    {
+      "id": "timeout",
+      "title": "Five-minute limit",
+      "file": "timeout.html",
+      "width": 420,
+      "height": 900,
+      "group": "Refresh outcomes"
+    },
+    {
+      "id": "organized",
+      "title": "Section cleanup",
+      "file": "organized.html",
+      "width": 420,
+      "height": 900,
+      "group": "Refresh outcomes"
+    },
+    {
+      "id": "empty",
+      "title": "Start with no pins",
+      "file": "empty.html",
+      "width": 420,
+      "height": 600,
+      "group": "Discover from recent work"
+    },
+    {
+      "id": "discovering",
+      "title": "Finding useful pins",
+      "file": "discovering.html",
+      "width": 420,
+      "height": 600,
+      "group": "Discover from recent work"
+    },
+    {
+      "id": "discovered",
+      "title": "A useful starting set",
+      "file": "discovered.html",
+      "width": 420,
+      "height": 950,
+      "group": "Discover from recent work"
+    }
+  ],
+  "tweaks": [
+    {
+      "id": "status-size",
+      "label": "Result text size",
+      "var": "--status-size",
+      "type": "range",
+      "min": 11,
+      "max": 14,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    }
+  ]
+}

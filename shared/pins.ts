@@ -1,5 +1,7 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
+import { pinInstanceIdSchema } from "./pin-identity";
+import { refreshRunSchema } from "./refresh-state";
 
 export const workspaceIdSchema = z.string().min(1);
 export const pinKeySchema = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/);
@@ -139,14 +141,14 @@ const pinSchema = resourceSchema.extend({
     .array(z.string().trim().min(1).max(128))
     .refine((ids) => new Set(ids).size === ids.length, "Duplicate notification IDs."),
 });
-const v3PinSchema = pinSchema.extend({ instanceId: z.string().min(1).max(256) });
+const v3PinSchema = pinSchema.extend({ instanceId: pinInstanceIdSchema });
 const currentPinSchema = v3PinSchema.extend({ section: pinKeySchema.nullable() });
 export type Pin = z.infer<typeof currentPinSchema>;
 
 export const summaryEntrySchema = z
   .object({
     key: pinKeySchema,
-    instanceId: z.string().min(1).max(256),
+    instanceId: pinInstanceIdSchema,
     title: z.string().min(1).max(120),
     url: pinUrlSchema,
     type: pinTypeSchema,
@@ -268,7 +270,7 @@ const currentDocumentSchema = v3DocumentSchema
     const keys = new Set(document.sections.map((section) => section.key));
     return document.pins.every((pin) => pin.section === null || keys.has(pin.section));
   }, "Unknown section in stored pins.");
-export const pinDocumentSchema = z.union([
+const v4CompatibleSchema = z.union([
   currentDocumentSchema,
   previousDocumentSchema
     .transform(
@@ -280,6 +282,33 @@ export const pinDocumentSchema = z.union([
       }),
     )
     .pipe(currentDocumentSchema),
+]);
+const v5DocumentSchema = z
+  .object({
+    ...currentDocumentSchema.shape,
+    version: z.literal(5),
+    refresh: refreshRunSchema.nullable(),
+  })
+  .strict()
+  .refine(
+    (document) =>
+      document.pins.every(
+        (pin) =>
+          pin.section === null || document.sections.some((section) => section.key === pin.section),
+      ),
+    "Unknown section in stored pins.",
+  );
+export const pinDocumentSchema = z.union([
+  v5DocumentSchema,
+  v4CompatibleSchema
+    .transform(
+      (document): z.input<typeof v5DocumentSchema> => ({
+        ...document,
+        version: 5 as const,
+        refresh: null,
+      }),
+    )
+    .pipe(v5DocumentSchema),
 ]);
 export type PinDocument = z.infer<typeof pinDocumentSchema>;
 

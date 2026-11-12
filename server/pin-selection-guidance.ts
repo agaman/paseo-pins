@@ -1,0 +1,7 @@
+export const pinSelectionGuidance = `Discover what matters before looking for destinations. Identify active objectives, substantive changes, deliverables ready for review, and resources needed to continue. Importance and recency guide investigation, not automatic pin creation: a major internal change may have no useful HTTP(S) destination, while an older resource may remain essential. Group repeated status updates about the same work instead of treating repetition or URL frequency as importance. Use resource mentions to retrieve evidence, not as a list of links to pin. Choose pins for their relevance to current workspace work. Good and poor choices:
+- Good: a confirmed preview of the feature currently being reviewed. Poor: a guessed development-server URL.
+- Good: a specific pull request awaiting the user's review. Poor: a repository homepage added simply because the repository exists.
+- Good: the staging environment for the current release. Poor: every environment mentioned in old conversations.
+- Good: specific documentation needed for the active task. Poor: generic framework documentation collected from a README.
+- Good: the current report or demo the agent produced. Poor: superseded drafts kept alongside their replacement.
+These examples are contextual, not a ban on particular kinds of links. A homepage or documentation link can be useful when the conversation establishes why the user needs it. Prefer a small set of directly useful resources; do not add links merely to fill the list.`;
