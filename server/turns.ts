@@ -13,6 +13,7 @@ import { matchesHostTurn, providerTurnId, turnInstance } from "./turn-identity";
 type ActiveTurn = { turnId: string | null; captured?: Promise<TurnIdentity> };
 
 type Paseo = PluginHandlerContext["paseo"];
+const publicationRetryWindow = 5 * 60 * 1000;
 
 export class PinTurns {
   private readonly active = new Map<string, ActiveTurn>();
@@ -24,7 +25,10 @@ export class PinTurns {
   private timer?: ReturnType<typeof setInterval>;
   private closed = false;
 
-  constructor(private readonly store: PinStore) {}
+  constructor(
+    private readonly store: PinStore,
+    private readonly now = Date.now,
+  ) {}
 
   connect(paseo: Paseo) {
     if (this.closed || this.paseo) return;
@@ -106,7 +110,7 @@ export class PinTurns {
           instanceId,
           outcome.kind === "completed" ? "completed" : "interrupted",
         );
-        if (summary?.entries.length) await this.publish(agent.workspaceId, summary, paseo, false);
+        if (summary?.entries.length) await this.publish(agent.workspaceId, summary, paseo);
       } finally {
         this.ending.delete(identity);
       }
@@ -118,7 +122,7 @@ export class PinTurns {
   recoverAgent(workspaceId: string, agentId: string, paseo: Paseo, force = false) {
     return this.enqueue(agentId, async () => {
       const summaries = (await this.store.summaries(workspaceId)).filter(
-        (s) => s.agentId === agentId && (force || !this.verified.has(s.id)),
+        (s) => s.agentId === agentId && this.canPublish(s) && (force || !this.verified.has(s.id)),
       );
       if (!summaries.length) return;
       const agent = await paseo.agents.ref(agentId).refresh();
@@ -126,6 +130,8 @@ export class PinTurns {
       const local = this.active.get(agentId);
       const localIdentity = await local?.captured?.catch(() => undefined);
       for (let summary of summaries) {
+        // Host snapshots and earlier summaries may have consumed the retry window.
+        if (!this.canPublish(summary)) continue;
         if (!summary.endedAt) {
           // Local lifecycle events can be newer than the awaited host snapshot.
           if (
@@ -147,7 +153,7 @@ export class PinTurns {
           this.verified.add(summary.id);
           continue;
         }
-        await this.publish(workspaceId, summary, paseo, true);
+        await this.publish(workspaceId, summary, paseo);
       }
     });
   }
@@ -209,12 +215,16 @@ export class PinTurns {
       });
   }
 
-  private async publish(
-    workspaceId: string,
-    summary: TurnSummary,
-    paseo: Paseo,
-    recovery: boolean,
-  ) {
+  private canPublish(summary: TurnSummary) {
+    // An unknown end time must not turn old abandoned work into a fresh retry.
+    return (
+      !summary.published &&
+      this.now() - Date.parse(summary.endedAt ?? summary.startedAt) <= publicationRetryWindow
+    );
+  }
+
+  private async publish(workspaceId: string, summary: TurnSummary, paseo: Paseo) {
+    if (!this.canPublish(summary)) return;
     const timeline = paseo.agents.ref(summary.agentId).timeline;
     const id = `pins-turn-${summary.id}`;
     // Check every page before a retry. Re-appending an existing row can move/replace history.
@@ -240,8 +250,8 @@ export class PinTurns {
         throw new Error("Timeline changed during recovery; publication will retry.");
     }
     if (!found) {
-      if (recovery && !summary.recovered)
-        await this.store.markPublication(workspaceId, summary.id, { recovered: true });
+      // Timeline inspection may span several requests; do not append after expiry.
+      if (!this.canPublish(summary)) return;
       await timeline.append({
         type: "plugin",
         id,

@@ -142,7 +142,7 @@ export function TurnSummary({ item, agentId, host, theme, layout }: Props) {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={meta?.recovered ? "Recovered pin updates" : "Pins"}
+          accessibilityLabel="Pins"
           accessibilityState={{ expanded: !collapsed }}
           onPress={() => setCollapsed((value) => !value)}
           onHoverIn={() => setHeaderHovered(true)}
@@ -173,7 +173,7 @@ export function TurnSummary({ item, agentId, host, theme, layout }: Props) {
               flexShrink: 1,
             }}
           >
-            {meta?.recovered ? "Recovered pin updates" : "Pins"}
+            Pins
           </Text>
         </Pressable>
         <MenuAction

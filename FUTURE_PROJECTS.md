@@ -52,7 +52,7 @@ Illustrative behavior, not a final layout:
 
 ## 2. After-turn chat summaries
 
-Detailed proposal: [See each turn’s useful resources in chat](plans/02-after-turn-summaries.md). The design is **Pins · After-turn summaries** in the design canvas. Agreed refinements: include committed changes from interrupted turns, show three entries initially, provide summary-scoped acknowledgment, and publish in the originating agent's conversation. Historical rows remain visible after their captured updates are read or superseded. Tested against Paseo 0.15.4; the plugin journal recovers rows missing after daemon restart, with an explicit recovery label.
+Detailed proposal: [See each turn’s useful resources in chat](plans/02-after-turn-summaries.md). The design is **Pins · After-turn summaries** in the design canvas. Agreed refinements: include committed changes from interrupted turns, show three entries initially, provide summary-scoped acknowledgment, and publish in the originating agent's conversation. Historical rows remain visible after their captured updates are read or superseded. Tested against Paseo 0.15.4; the plugin retains its journal but never replays previously published rows after daemon restart. Undelivered summaries have a five-minute retry window and use the normal Pins heading.
 
 Append one compact block showing the useful pins added or meaningfully updated during an agent turn.
 

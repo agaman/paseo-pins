@@ -10,7 +10,7 @@ New pins start read. Agents must explain each meaningful update in a short messa
 
 After each agent turn, a compact chat block shows newly added pins and updates flagged for attention. Its heading collapses the whole group. It initially shows three entries; **Show all** expands the rest. Each entry preserves the destination captured during that turn. Opening it or using the block’s **Mark as read** action acknowledges only those captured updates, including collapsed entries. Newer updates stay unread. Stopped or failed turns still show successfully saved changes with **Turn interrupted**.
 
-Pin changes and summary history are saved together on the daemon. Older data files migrate automatically without notifying or backfilling old changes. A missing chat row is recovered when the plugin next connects to Paseo or the conversation is opened; delayed recovery is labeled with the original turn time. Keep these data files when upgrading: removing a current pin does not remove its historical links.
+Pin changes and summary history are saved together on the daemon. Older data files migrate automatically without notifying or backfilling old changes. Failed summary delivery retries briefly. Previously published summaries are never replayed into the current conversation, even if Paseo loses their chat rows after a restart. The saved history remains in the plugin journal. Keep these data files when upgrading: removing a current pin does not remove its historical links.
 
 Agents can organize related links under optional section headings. Unsectioned pins stay at the top, empty sections are hidden, and removing a section keeps its pins. Chat summaries remain flat.
 

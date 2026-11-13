@@ -1,5 +1,8 @@
 # See each turn’s useful resources in chat
 
+> **Behavior update (2026-11-13):** the user rejected replaying old summaries into current chat. This supersedes the recovery/backfill behavior below: never replay a summary recorded as published. Retry undelivered summaries for five minutes after completion is recorded, checking for existing rows before appending. Unfinished summaries are eligible for recovery only within five minutes of their start time. Use the normal **Pins** heading. Expired entries remain in the journal without automatic publication.
+
+
 Show the pins an agent adds or meaningfully updates directly below its turn, so the user can review the result without opening the Pins menu. One compact block preserves the destinations captured in that turn and shares acknowledgment with the workspace list.
 
 **Status:** implemented and reviewed; the comprehensive repository gate and composed browser previews pass. Native-device verification remains pending. The product decisions below are agreed. The design is in **Pins · After-turn summaries** (`design/pin-chat-summaries`). Implementation requires Paseo **0.15.4 or newer** on the daemon and clients; no Paseo source changes are proposed or authorized.

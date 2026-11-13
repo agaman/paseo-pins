@@ -32,7 +32,8 @@ const agent = (id = "agent-a"): PluginHookAgent => ({
 
 async function fixture(t: { after(fn: () => Promise<void>): void }) {
   const directory = await mkdtemp(path.join(tmpdir(), "paseo-summary-"));
-  const store = new PinStore(directory);
+  let clock = Date.parse(turn().startedAt);
+  const store = new PinStore(directory, () => new Date(clock).toISOString());
   const coordinators: PinTurns[] = [];
   t.after(async () => {
     for (const coordinator of coordinators) await coordinator.close();
@@ -42,8 +43,11 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
   return {
     store,
     directory,
+    advance: (milliseconds: number) => {
+      clock += milliseconds;
+    },
     coordinator: () => {
-      const value = new PinTurns(store);
+      const value = new PinTurns(store, () => clock);
       coordinators.push(value);
       return value;
     },
@@ -317,7 +321,7 @@ test("missing turn identity rejects before any write; snapshot fallback captures
   assert.equal(providerTurnId((await store.summaries("workspace"))[0].turnId), "fallback");
 });
 
-test("failed append leaves committed pins and retries as recovered without duplicate rows", async (t) => {
+test("failed append leaves committed pins and retries briefly without duplicate rows or recovery labels", async (t) => {
   const { store, coordinator } = await fixture(t);
   const turns = coordinator();
   const host = fakePaseo();
@@ -337,10 +341,10 @@ test("failed append leaves committed pins and retries as recovered without dupli
   await restored.recoverAgent("workspace", "agent-a", host.paseo);
   await restored.recoverAgent("workspace", "agent-a", host.paseo, true);
   assert.equal(host.appends(), 1);
-  assert.equal((await store.summaries("workspace"))[0].recovered, true);
+  assert.equal((await store.summaries("workspace"))[0].recovered, false);
 });
 
-test("recovery waits for an active turn and repairs missing host rows after a restart", async (t) => {
+test("recovery waits for an active turn but never replays published rows after a restart", async (t) => {
   const { store, coordinator } = await fixture(t);
   await store.upsert("workspace", resource, undefined, turn());
   const host = fakePaseo();
@@ -354,8 +358,93 @@ test("recovery waits for an active turn and repairs missing host rows after a re
   host.rows.clear();
   const restarted = coordinator();
   await restarted.recoverAgent("workspace", "agent-a", host.paseo);
-  assert.equal(host.appends(), 2);
-  assert.equal(host.rows.get("agent-a")?.length, 1);
+  await restarted.recoverAgent("workspace", "agent-a", host.paseo, true);
+  assert.equal(host.appends(), 1);
+  assert.equal(host.rows.get("agent-a"), undefined);
+});
+
+test("expired undelivered summaries stay in the journal without replay after reload or forced recovery", async (t) => {
+  const { store, coordinator, advance } = await fixture(t);
+  await store.upsert("workspace", resource, undefined, turn());
+  await store.finalize("workspace", "agent-a", "turn-a", "completed");
+  const before = await store.document("workspace");
+  const host = fakePaseo();
+  advance(5 * 60 * 1000 + 1);
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo, true);
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo);
+  assert.equal(host.appends(), 0);
+  assert.deepEqual(await store.document("workspace"), before);
+});
+
+test("old unfinished summaries do not acquire a new publication window on recovery", async (t) => {
+  const { store, coordinator, advance } = await fixture(t);
+  await store.upsert("workspace", resource, undefined, turn());
+  const before = await store.document("workspace");
+  advance(60 * 60 * 1000);
+  const host = fakePaseo();
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo, true);
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo, true);
+  assert.equal(host.appends(), 0);
+  assert.deepEqual(await store.document("workspace"), before);
+});
+
+test("publication rechecks retry expiry after awaiting timeline inspection", async (t) => {
+  const { store, coordinator, advance } = await fixture(t);
+  await store.upsert("workspace", resource, undefined, turn());
+  await store.finalize("workspace", "agent-a", "turn-a", "completed");
+  const host = fakePaseo();
+  const originalRef = host.paseo.agents.ref;
+  host.paseo.agents.ref = ((id: string) => {
+    const ref = originalRef(id);
+    const refetch = ref.timeline.refetch;
+    ref.timeline.refetch = async (...args) => {
+      const result = await refetch(...args);
+      advance(5 * 60 * 1000 + 1);
+      return result;
+    };
+    return ref;
+  }) as typeof originalRef;
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo);
+  assert.equal(host.appends(), 0);
+  assert.equal((await store.summaries("workspace"))[0].published, false);
+});
+
+test("a delayed host snapshot cannot renew an expired unfinished summary", async (t) => {
+  const { store, coordinator, advance } = await fixture(t);
+  await store.upsert("workspace", resource, undefined, turn());
+  const before = await store.document("workspace");
+  const host = fakePaseo();
+  const originalRef = host.paseo.agents.ref;
+  host.paseo.agents.ref = ((id: string) => {
+    const ref = originalRef(id);
+    const refresh = ref.refresh;
+    ref.refresh = async () => {
+      advance(5 * 60 * 1000 + 1);
+      return refresh();
+    };
+    return ref;
+  }) as typeof originalRef;
+  await coordinator().recoverAgent("workspace", "agent-a", host.paseo);
+  assert.equal(host.appends(), 0);
+  assert.deepEqual(await store.document("workspace"), before);
+});
+
+test("a long active turn still publishes normally when its completion is observed", async (t) => {
+  const { store, coordinator, advance } = await fixture(t);
+  const turns = coordinator();
+  const host = fakePaseo();
+  host.active.set("agent-a", "turn-a");
+  turns.begin(agent(), "turn-a", host.paseo);
+  await turns.run(
+    { agent: agent(), paseo: host.paseo, signal: new AbortController().signal },
+    (identity) => store.upsert("workspace", resource, undefined, identity),
+  );
+  advance(60 * 60 * 1000);
+  await turns.recoverAgent("workspace", "agent-a", host.paseo, true);
+  assert.equal(host.appends(), 0);
+  await turns.end(agent(), "turn-a", { kind: "completed" }, host.paseo);
+  assert.equal(host.appends(), 1);
+  assert.equal((await store.summaries("workspace"))[0].published, true);
 });
 
 test("late and nullable end events do not finalize a newer active turn", async (t) => {
@@ -668,7 +757,7 @@ for (const observedBegin of [true, false]) {
     await resumed.end(agent(), "codex-turn-0", { kind: "completed" }, host.paseo);
     const [summary] = await store.summaries("workspace");
     assert.equal(summary.outcome, "interrupted");
-    assert.equal(summary.recovered, true);
+    assert.equal(summary.recovered, false);
     assert.equal(host.appends(), 1);
   });
 }
