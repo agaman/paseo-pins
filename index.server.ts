@@ -3,17 +3,18 @@ import { withPinGuidance } from "./server/guidance";
 import { type Paseo, workerLabel } from "./server/refresh-context";
 import { RefreshCoordinator } from "./server/refresh-coordinator";
 import { refreshGuidance } from "./server/refresh-guidance";
+import { RefreshResults } from "./server/refresh-results";
 import { createRefreshTools } from "./server/refresh-tools";
 import { dataDirectory, PinStore } from "./server/store";
 import { createPinTools } from "./server/tools";
 import { PinTurns } from "./server/turns";
 import { acknowledgePins, listPins, setPinKept } from "./shared/pins";
 import {
+  acknowledgeRefreshResult,
   cancelRefresh,
   listRefreshProfiles,
   readRefresh,
   refreshSettings,
-  refreshView,
   startRefresh,
 } from "./shared/refresh";
 import { acknowledgeSummary, readSummary } from "./shared/summaries";
@@ -26,6 +27,7 @@ export default function contribute(server: PluginServerContext) {
     return workspace.workspaceDirectory;
   });
   const turns = new PinTurns(store);
+  const refreshResults = new RefreshResults(store);
   const tools = createPinTools(store, turns);
   const settings = server.registerSettings(refreshSettings);
   const refresh = new RefreshCoordinator(store, async () => {
@@ -44,9 +46,13 @@ export default function contribute(server: PluginServerContext) {
   server.handle(readRefresh, async ({ workspaceId }, { paseo }) => {
     connect(paseo);
     return {
-      run: refreshView((await store.document(workspaceId)).refresh),
+      ...(await refreshResults.read(workspaceId)),
       configured: await refresh.configured(paseo),
     };
+  });
+  server.handle(acknowledgeRefreshResult, ({ workspaceId, runId, action }, { paseo }) => {
+    connect(paseo);
+    return refreshResults.acknowledge(workspaceId, runId, action);
   });
   server.handle(cancelRefresh, ({ workspaceId, runId }, { paseo }) => {
     connect(paseo);

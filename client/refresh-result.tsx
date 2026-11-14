@@ -1,61 +1,45 @@
 import type { PluginButtonContentProps } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import { useEffect, useState } from "react";
-import { AppState, Pressable, Text, View } from "react-native";
-import { type RefreshView, refreshHasError, refreshTitle } from "../shared/refresh";
+import { useRef, useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import {
+  type RefreshPresentation,
+  type RefreshView,
+  refreshHasError,
+  refreshTitle,
+} from "../shared/refresh";
 import { MenuAction } from "./menu-action";
+import { useRefreshResultView } from "./use-refresh-result-view";
 
-const dismissed = new Set<string>();
-const viewed = new Set<string>();
-const minimumViewMs = 3000;
 export function RefreshResult({
   run,
-  hostId,
-  workspaceId,
+  presentation,
+  acknowledge,
   theme,
   touch,
   busy,
   cancel,
 }: {
   run: RefreshView;
-  hostId: string;
-  workspaceId: string;
+  presentation: RefreshPresentation;
+  acknowledge(action: "viewed" | "dismissed"): Promise<boolean>;
   theme: PluginButtonContentProps["theme"];
   touch: boolean;
   busy: boolean;
   cancel: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const key = `${hostId}:${workspaceId}:${run.id}`;
+  const [dismissing, setDismissing] = useState(false);
+  const visibleNow = presentation.state === "active" || presentation.state === "visible";
+  const shown = useRef(visibleNow);
+  if (visibleNow) shown.current = true;
   const active = !run.outcome;
   const hasError = refreshHasError(run);
-  const autoDismiss =
-    run.state === "finished" &&
-    !run.cleanupPending &&
-    (run.outcome === "completed" || run.outcome === "partial");
-  const invisible = hidden || dismissed.has(key) || (autoDismiss && viewed.has(key));
-  useEffect(() => {
-    if (!autoDismiss || invisible) return;
-    // The host mounts popover content only while it is open. Count foreground
-    // viewing time, then dismiss on close; never hide a result while reading it.
-    let elapsed = 0;
-    let since = AppState.currentState === "active" ? Date.now() : null;
-    const accumulate = () => {
-      if (since !== null) elapsed += Math.max(0, Date.now() - since);
-      since = null;
-    };
-    const subscription = AppState.addEventListener("change", (state) => {
-      accumulate();
-      if (state === "active") since = Date.now();
-    });
-    return () => {
-      subscription.remove();
-      accumulate();
-      if (elapsed >= minimumViewMs) viewed.add(key);
-    };
-  }, [key, autoDismiss, invisible]);
-  if (!active && invisible) return null;
+  useRefreshResultView(presentation.autoDismiss && presentation.state === "visible", () =>
+    acknowledge("viewed"),
+  );
+  // Keep a result already being read until close; explicit dismissal still wins.
+  if (presentation.state === "dismissed" || (!visibleNow && !shown.current)) return null;
   const text = { fontSize: 12, lineHeight: 17, color: theme.colors.foregroundMuted };
   const title = (
     <Text style={{ ...text, color: theme.colors.foreground, flexShrink: 1 }}>
@@ -104,13 +88,13 @@ export function RefreshResult({
           icon="X"
           label={active ? "Cancel refresh" : "Dismiss refresh result"}
           tooltip={active ? "Cancel refresh" : "Dismiss"}
-          disabled={busy}
-          busy={busy}
+          disabled={busy || dismissing || (!active && presentation.state === "active")}
+          busy={busy || dismissing}
           onPress={() => {
             if (active) cancel();
             else {
-              dismissed.add(key);
-              setHidden(true);
+              setDismissing(true);
+              void acknowledge("dismissed").finally(() => setDismissing(false));
             }
           }}
         />

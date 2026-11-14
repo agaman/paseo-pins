@@ -15,6 +15,11 @@ export const refreshSettings = defineSettings({
   schema: z.object({ profileId: z.string().nullable().default(null) }),
 });
 const workspace = z.object({ workspaceId: workspaceIdSchema });
+const refreshPresentationSchema = z.object({
+  state: z.enum(["active", "visible", "viewed", "dismissed", "expired"]),
+  autoDismiss: z.boolean(),
+});
+export type RefreshPresentation = z.infer<typeof refreshPresentationSchema>;
 const viewSchema = z.object({
   id: z.uuid(),
   state: z.enum(["starting", "running", "stopping", "finished"]),
@@ -104,7 +109,19 @@ export const startRefresh = defineRpc({
 export const readRefresh = defineRpc({
   name: "pins.refresh.status",
   input: workspace,
-  output: z.object({ run: viewSchema.nullable(), configured: z.boolean() }),
+  output: z.object({
+    run: viewSchema.nullable(),
+    configured: z.boolean(),
+    presentation: refreshPresentationSchema.nullable(),
+  }),
+});
+export const acknowledgeRefreshResult = defineRpc({
+  name: "pins.refresh.acknowledge",
+  input: workspace.extend({ runId: z.uuid(), action: z.enum(["viewed", "dismissed"]) }),
+  output: z.object({
+    run: viewSchema.nullable(),
+    presentation: refreshPresentationSchema.nullable(),
+  }),
 });
 export const cancelRefresh = defineRpc({
   name: "pins.refresh.cancel",

@@ -49,6 +49,8 @@ export const refreshRunSchema = z
     startedAt: z.iso.datetime(),
     deadline: z.iso.datetime(),
     endedAt: z.iso.datetime().nullable(),
+    resultViewedAt: z.iso.datetime().nullable().default(null),
+    resultDismissedAt: z.iso.datetime().nullable().default(null),
     cleanupPending: z.boolean(),
     launched: z.boolean(),
     promptSent: z.boolean(),

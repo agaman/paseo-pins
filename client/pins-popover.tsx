@@ -190,13 +190,13 @@ export function PinsPopover({
             </Pressable>
           </View>
         )}
-        {run && (
+        {run && refresh.query.data?.presentation && (
           <View style={{ zIndex: groups.length + 1 }}>
             <RefreshResult
               key={run.id}
               run={run}
-              hostId={host.id}
-              workspaceId={workspaceId}
+              presentation={refresh.query.data.presentation}
+              acknowledge={(action) => refresh.acknowledgeResult(run.id, action)}
               theme={theme}
               touch={touch}
               busy={refresh.busy}
