@@ -2,21 +2,18 @@
 
 <p align="center">Useful workspace resources, kept current by your agents.</p>
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <a href="assets/menu-light.png"><img src="assets/menu-light.png" alt="Light workspace menu with sections, update messages, and kept pins" width="100%"></a>
-      <br><sub>Light menu</sub>
-    </td>
-    <td align="center" width="50%">
-      <a href="assets/menu-dark.png"><img src="assets/menu-dark.png" alt="The workspace menu in a dark theme" width="100%"></a>
-      <br><sub>Dark menu</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="assets/menu-light.png"><img src="assets/menu-light.png" alt="Light workspace menu with sections, update messages, and kept pins" width="360"></a>
+  <br><sub>Light menu</sub>
+</p>
 
 <p align="center">
-  <a href="assets/chat-summary.png"><img src="assets/chat-summary.png" alt="New pins and update messages collected in an after-turn chat summary" width="100%"></a>
+  <a href="assets/menu-dark.png"><img src="assets/menu-dark.png" alt="The workspace menu in a dark theme" width="360"></a>
+  <br><sub>Dark menu</sub>
+</p>
+
+<p align="center">
+  <a href="assets/chat-summary.png"><img src="assets/chat-summary.png" alt="New pins and update messages collected in an after-turn chat summary" width="700"></a>
   <br><sub>Updates in chat</sub>
 </p>
 
