@@ -3,7 +3,7 @@
 <p align="center">Useful workspace resources, kept current by your agents.</p>
 
 <p align="center">
-  <a href="assets/menu-gallery.png"><img src="assets/menu-gallery.png" alt="Light menu and dark menu side by side, showing grouped pins and update messages" width="740"></a>
+  <a href="assets/menu-gallery.png"><img src="assets/menu-gallery.png" alt="Light and dark previews of Pins opening from the pill above the chat composer, with grouped resources and update messages" width="740"></a>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@ paseo plugin add git:agaman/paseo-pins
 
 Enable **Paseo tools** under **Settings → your host → Agents** so agents can manage pins. New or reopened agent sessions receive the tools and guidance.
 
-Open **Pins** in the workspace header, or the workspace menu on mobile. Press **Find pins** to discover useful links from recent work, or ask your agent to add one. Links open in your device's external browser.
+Open **Pins** above the chat composer, beside Tasks and Subagents, on desktop or mobile. Press **Find pins** to discover useful links from recent work, or ask your agent to add one. Links open in your device's external browser.
 
 ## Settings
 

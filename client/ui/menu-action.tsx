@@ -1,6 +1,12 @@
 import type { PluginButtonContentProps } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
 import { Pressable, Text, View } from "react-native";
+import {
+  actionTooltipContentStyle,
+  iconButtonHoverBackground,
+  tooltipSurfaceStyle,
+  tooltipTextStyle,
+} from "../theme";
 import { useActionTooltip } from "./use-action-tooltip";
 
 export function MenuAction({
@@ -53,12 +59,12 @@ export function MenuAction({
           gap: 6,
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 8,
+          borderRadius: 6,
           borderWidth: 1,
           borderColor: focused ? theme.colors.accent : "transparent",
           backgroundColor:
             !disabled && (hovered || pressed || focused)
-              ? theme.colors.border
+              ? iconButtonHoverBackground(theme)
               : showLabel
                 ? theme.colors.surface2
                 : "transparent",
@@ -80,18 +86,13 @@ export function MenuAction({
             position: "absolute",
             top: size + 4,
             right: 0,
-            width: 104,
-            paddingHorizontal: 8,
-            paddingVertical: 5,
-            borderRadius: 4,
-            backgroundColor: theme.colors.foreground,
+            ...actionTooltipContentStyle,
+            ...tooltipSurfaceStyle(theme),
           }}
         >
           <Text
             style={{
-              fontSize: 12,
-              lineHeight: 16,
-              color: theme.colors.surface0,
+              ...tooltipTextStyle(theme),
               textAlign: "center",
             }}
           >

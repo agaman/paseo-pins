@@ -1,6 +1,6 @@
 # Using Pins
 
-Open **Pins** in the workspace header. On mobile or a narrow window, open the workspace actions menu first. Each workspace has its own list, shared across its agents and your connected devices.
+Open **Pins** above the chat composer, beside Tasks and Subagents. It opens a popover on desktop and a sheet on mobile. Each workspace has its own list, shared across its agents and your connected devices.
 
 ## Find and refresh
 

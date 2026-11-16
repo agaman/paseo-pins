@@ -1,7 +1,12 @@
 import type { PluginButtonContentProps, PluginSerializableIcon } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/ui";
 import { Pressable, Text, View } from "react-native";
-import { readButtonBackground } from "../theme";
+import {
+  actionTooltipContentStyle,
+  iconButtonHoverBackground,
+  tooltipSurfaceStyle,
+  tooltipTextStyle,
+} from "../theme";
 import { useActionTooltip } from "./use-action-tooltip";
 
 export function PinAction({
@@ -11,7 +16,6 @@ export function PinAction({
   selected,
   visible = true,
   theme,
-  surface,
   touch,
   busy,
   onActive,
@@ -23,7 +27,6 @@ export function PinAction({
   selected?: boolean;
   visible?: boolean;
   theme: PluginButtonContentProps["theme"];
-  surface: string;
   touch: boolean;
   busy: boolean;
   onActive(active: boolean): void;
@@ -68,20 +71,17 @@ export function PinAction({
           alignItems: "center",
           justifyContent: "center",
           opacity: visible || active ? 1 : 0,
-          borderRadius: 8,
+          borderRadius: 6,
           borderWidth: 1,
-          borderColor: focused
-            ? theme.colors.accent
-            : active || pressed
-              ? theme.colors.border
-              : "transparent",
-          backgroundColor: active || pressed ? readButtonBackground(theme, surface) : "transparent",
+          borderColor: focused ? theme.colors.accent : "transparent",
+          backgroundColor:
+            !busy && (active || pressed) ? iconButtonHoverBackground(theme) : "transparent",
         })}
       >
         <Icon
           icon={icon}
           size={14}
-          color={selected || active ? theme.colors.foreground : theme.colors.foregroundMuted}
+          color={selected ? theme.colors.foreground : theme.colors.foregroundMuted}
         />
       </Pressable>
       {tip.showTooltip && (
@@ -92,18 +92,15 @@ export function PinAction({
             position: "absolute",
             // Stay within the row, including at the menu’s bottom edge.
             right: size + 4,
-            top: (size - 28) / 2,
-            width: 112,
-            padding: 6,
-            borderRadius: 4,
-            backgroundColor: theme.colors.foreground,
+            top: "50%",
+            transform: [{ translateY: "-50%" }],
+            ...actionTooltipContentStyle,
+            ...tooltipSurfaceStyle(theme),
           }}
         >
           <Text
             style={{
-              color: theme.colors.surface0,
-              fontSize: 12,
-              lineHeight: 16,
+              ...tooltipTextStyle(theme),
               textAlign: "center",
             }}
           >

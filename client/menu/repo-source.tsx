@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { tooltipContentStyle, tooltipSurfaceStyle, tooltipTextStyle } from "../theme";
 import { actionTooltips } from "../ui/tooltip-state";
 import { visibleWebBounds } from "../web";
 
@@ -228,28 +229,19 @@ export function RepoSourceLayer({
               ),
               width,
               maxHeight: Math.max(30, anchor.height - 12),
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: theme.colors.border,
-              backgroundColor: theme.colors.surface0,
-              shadowColor: theme.colors.foreground,
-              shadowOpacity: 0.12,
-              shadowRadius: 8,
-              elevation: 5,
+              ...tooltipSurfaceStyle(theme),
             }}
           >
-            <ScrollView contentContainerStyle={{ padding: 10, gap: 4 }}>
+            <ScrollView contentContainerStyle={{ ...tooltipContentStyle, gap: 4 }}>
               <Text
                 style={{
-                  color: theme.colors.foreground,
-                  fontSize: 12,
-                  lineHeight: 17,
+                  ...tooltipTextStyle(theme),
                   fontWeight: "500",
                 }}
               >
                 From repository
               </Text>
-              <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 17 }}>
+              <Text style={{ ...tooltipTextStyle(theme), color: theme.colors.foregroundMuted }}>
                 Defined in .paseo/pins.json. Changes to this pin come from that file.
               </Text>
             </ScrollView>

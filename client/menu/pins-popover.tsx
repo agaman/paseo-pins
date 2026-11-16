@@ -1,6 +1,6 @@
 import { openExternalUrl, type PluginButtonContentProps } from "@getpaseo/plugin/client";
 import { useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, type ViewStyle } from "react-native";
 import type { AcknowledgmentEntries } from "../../shared/pin-rpc";
 import { isUnread, type Pin } from "../../shared/pins";
 import { groupPins } from "../../shared/sections";
@@ -44,7 +44,7 @@ export function PinsPopover({
   }
   const touch = useTouchControls();
   const native = layout.platform !== "web";
-  // Paseo owns the background. Match its surface only for the unread dot's cutout.
+  // Match the host surface for the unread dot cutout and opaque sticky toolbar.
   const surface = layout.compact
     ? native
       ? theme.colors.surface0
@@ -159,8 +159,33 @@ export function PinsPopover({
             borderBottomWidth: 1,
             borderBottomColor: theme.colors.border,
             zIndex: groups.length + 2,
+            // Web CSS sticks within the host's scroll area without introducing a second scroller.
+            // Native sheets own their ScrollView and expose no sticky-header registration.
+            ...(!native
+              ? {
+                  position: "sticky" as ViewStyle["position"],
+                  // Match the resting inset: desktop host padding (4px) minus our 2px top trim.
+                  top: layout.compact ? 0 : 2,
+                  backgroundColor: surface,
+                }
+              : {}),
           }}
         >
+          {!native && (
+            <View
+              pointerEvents="none"
+              accessible={false}
+              style={{
+                // Cover the host's top inset as rows pass behind the sticky toolbar.
+                position: "absolute",
+                top: -16,
+                height: 16,
+                left: 0,
+                right: 0,
+                backgroundColor: surface,
+              }}
+            />
+          )}
           {!empty && (
             <>
               <MenuAction

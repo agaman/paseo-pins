@@ -3,7 +3,7 @@ import { Icon } from "@getpaseo/plugin/client/ui";
 import { useEffect } from "react";
 import { usePins } from "../use-pins";
 
-export function PinsHeader({
+export function PinsButtonIcon({
   host,
   workspaceId,
   size,

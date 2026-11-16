@@ -40,6 +40,7 @@ export function PinRow({
   const unread = isUnread(pin);
   const message = unread ? (pin.attention?.reason ?? "Unread update") : undefined;
   const active = Object.values(activeTargets).some(Boolean);
+  const highlighted = active && !activeTargets.ack && !activeTargets.keep;
   function activate(target: string, value: boolean) {
     setActiveTargets((current) => ({ ...current, [target]: value }));
   }
@@ -61,13 +62,13 @@ export function PinRow({
     onPressIn: () => activate(`${target}:press`, true),
     onPressOut: () => activate(`${target}:press`, false),
   });
-  const actionProps = { theme, surface, touch, busy };
+  const actionProps = { theme, touch, busy };
   const configured = pin.source === "repo";
   const resourceIcon = (
     <PinIcon
       type={pin.type}
       unread={unread}
-      active={active}
+      active={highlighted}
       compact={compact}
       surface={surface}
       activeSurface={theme.colors.surface2}
@@ -109,11 +110,11 @@ export function PinRow({
         paddingRight: 4,
         opacity: busy ? 0.6 : 1,
         zIndex: active ? 2 : 0,
-        backgroundColor: active ? theme.colors.surface2 : "transparent",
+        backgroundColor: highlighted ? theme.colors.surface2 : "transparent",
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {configured ? (
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        {configured && !touch ? (
           <View
             style={{
               flex: 1,
@@ -121,7 +122,7 @@ export function PinRow({
               alignItems: "flex-start",
               paddingHorizontal: 8,
               paddingTop: 6,
-              paddingBottom: touch ? 0 : 4,
+              paddingBottom: 4,
               gap: 8,
               minWidth: 0,
             }}
@@ -165,7 +166,7 @@ export function PinRow({
           <Pressable
             {...linkEvents("link")}
             accessibilityRole="link"
-            accessibilityLabel={`${pin.title}.${pin.kept ? " Kept." : ""}${unread ? " Unread." : ""} Opens in your browser. ${pin.url}`}
+            accessibilityLabel={`${pin.title}.${configured ? " From repository." : pin.kept ? " Kept." : ""}${unread ? " Unread." : ""} Opens in your browser. ${pin.url}`}
             accessibilityState={{ disabled: busy }}
             disabled={busy}
             onPress={onOpen}
@@ -188,6 +189,8 @@ export function PinRow({
             </View>
           </Pressable>
         )}
+        {/* Keep the 44px repository touch target out of the subtitle's line height. */}
+        {configured && touch && <RepoSource title={pin.title} theme={theme} touch />}
         {!configured && (
           <PinAction
             {...actionProps}
@@ -205,7 +208,7 @@ export function PinRow({
         <View
           style={{
             flexDirection: "row",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: 6,
             paddingLeft: compact ? 32 : 36,
             paddingBottom: 4,

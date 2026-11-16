@@ -67,6 +67,15 @@ try {
     await page.goto(address + query);
     await page.getByText("The new onboarding flow is ready to review.", { exact: true }).waitFor();
     await page.getByText("Keyboard and screen-reader checks are ready.", { exact: true }).waitFor();
+    const pill = page.getByTestId("pins-composer-pill");
+    await pill.getByText("Pins (2)", { exact: true }).waitFor();
+    const pillBounds = await pill.boundingBox();
+    const composerBounds = await page.getByTestId("chat-composer").boundingBox();
+    assert(pillBounds.y + pillBounds.height < composerBounds.y);
+    if (!touch && name !== "chat-summary") {
+      const menuBounds = await page.getByTestId("pins-popover").boundingBox();
+      assert(menuBounds.y + menuBounds.height <= pillBounds.y - 12);
+    }
     if (name !== "chat-summary") {
       await page.getByText("Repo", { exact: true }).waitFor();
       assert.equal(
@@ -100,7 +109,8 @@ async function captureMenuGallery(browser) {
   const figures = await Promise.all(
     ["light", "dark"].map(async (theme) => {
       const png = await readFile(path.join(root, "assets", `menu-${theme}.png`));
-      const label = theme === "light" ? "Light menu" : "Dark menu";
+      const label =
+        theme === "light" ? "Pins above the composer · Light" : "Pins above the composer · Dark";
       return `<figure class="${theme}"><img src="data:image/png;base64,${png.toString("base64")}" alt="${label}"><figcaption>${label}</figcaption></figure>`;
     }),
   );

@@ -19,13 +19,13 @@ Update `fixture.jsx` for sample content and `preview.jsx` for the surrounding fr
 
 ## Images and provenance
 
-The images render the current `PinsPopover` and `TurnSummary` components in React Native Web. Host RPCs and the surrounding frame are fixtures. All names, links, and update messages are sample data; no live pins, conversations, or host settings are accessed. These are component previews, not captures of a live workspace or native iOS/Android app.
+The images render the current `PinsPopover`, `PinsButtonIcon`, and `TurnSummary` components in React Native Web. Host RPCs, composer, pill frame, and surrounding conversation are fixtures. The desktop menu opens above the Pins pill beside Subagents; compact layouts show a bottom sheet. All names, links, and update messages are sample data; no live pins, conversations, or host settings are accessed. These are component previews, not captures of a live workspace or native iOS/Android app.
 
-- `menu-light.png`: grouped resources, unread messages, a kept pin, and a repository-owned pin.
+- `menu-light.png`: grouped resources and unread messages, with the Pins pill above the composer.
 - `menu-dark.png`: the same resources in a dark palette.
 - `menu-gallery.png`: light and dark captures arranged side by side with captions, avoiding GitHub's table borders in the README.
-- `menu-compact.png`: compact web layout with touch controls.
-- `chat-summary.png`: additions and updates captured after a turn.
+- `menu-compact.png`: compact web bottom sheet with touch controls.
+- `chat-summary.png`: additions and updates captured after a turn, above the composer and Pins pill.
 - `icon.png`: a 512px PNG rendered from the original `assets/icon.svg` mark.
 
 Only the PNG assets ship in the plugin package. Regenerate them after changing the pictured components and inspect every result before publishing.
