@@ -142,49 +142,61 @@ export function PinsPopover({
           marginVertical: -12,
         }}
       >
-        {!empty && (
-          <View
-            testID="pins-actions"
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              gap: 4,
-              // Extend the divider through the host inset, preserving action alignment.
-              marginHorizontal: -4,
-              paddingLeft: 4,
-              paddingRight: 8,
-              marginTop: layout.compact ? 0 : -2,
-              marginBottom: 4,
-              paddingBottom: 4,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.border,
-              zIndex: groups.length + 2,
-            }}
-          >
-            <MenuAction
-              icon={refreshIcon}
-              label={refreshLabel}
-              tooltip={refreshLabel}
-              theme={theme}
-              touch={touch}
-              disabled={refreshDisabled}
-              busy={refresh.busy || refreshing}
-              onPress={refreshPins}
-            />
-            <MenuAction
-              icon="ListChecks"
-              label="Mark all pins as read"
-              tooltip="Mark as read"
-              theme={theme}
-              touch={touch}
-              disabled={busy || unreadEntries.length === 0}
-              busy={busy}
-              onPress={() => {
-                void read(unreadEntries);
-              }}
-            />
-          </View>
-        )}
+        <View
+          testID="pins-actions"
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            gap: 4,
+            // Extend the divider through the host inset, preserving action alignment.
+            marginHorizontal: -4,
+            paddingLeft: 4,
+            paddingRight: 8,
+            marginTop: layout.compact ? 0 : -2,
+            marginBottom: 4,
+            paddingBottom: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+            zIndex: groups.length + 2,
+          }}
+        >
+          {!empty && (
+            <>
+              <MenuAction
+                icon={refreshIcon}
+                label={refreshLabel}
+                tooltip={refreshLabel}
+                theme={theme}
+                touch={touch}
+                disabled={refreshDisabled}
+                busy={refresh.busy || refreshing}
+                onPress={refreshPins}
+              />
+              <MenuAction
+                icon="ListChecks"
+                label="Mark all pins as read"
+                tooltip="Mark as read"
+                theme={theme}
+                touch={touch}
+                disabled={busy || unreadEntries.length === 0}
+                busy={busy}
+                onPress={() => {
+                  void read(unreadEntries);
+                }}
+              />
+            </>
+          )}
+          <MenuAction
+            icon="Settings"
+            label="Pins settings"
+            tooltip="Pins settings"
+            theme={theme}
+            touch={touch}
+            disabled={false}
+            busy={false}
+            onPress={openSettings}
+          />
+        </View>
         {query.data?.config?.error && (
           <View style={{ padding: 8, gap: 5 }}>
             <Text accessibilityRole="alert" style={muted}>
