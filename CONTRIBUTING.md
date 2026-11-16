@@ -29,7 +29,7 @@ The [listing capture tool](tools/listing/README.md) regenerates sample-data scre
 | `index.server.ts`, `server/` | Agent tools, persistence, repository config, refresh workers |
 | `shared/` | Schemas and RPC contracts |
 | `tests/` | Deterministic behavior checks |
-| `docs/` | User help, repository configuration, roadmap |
+| `docs/` | User help and repository configuration |
 
 Client code is grouped into `menu/`, `refresh/`, `summaries/`, and reusable `ui/` components. Server code groups refresh workers, summaries, and agent guidance separately; persistence and repository configuration remain at the server root. Tests follow the same feature groups, and `npm test` discovers them recursively.
 
