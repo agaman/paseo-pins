@@ -6,10 +6,13 @@ Use Node.js 22 or later and Paseo 0.15.4 or later on the daemon and app.
 npm ci
 npm run hooks:install
 npm run check
-paseo plugin install /absolute/path/to/paseo-pins
+paseo plugin disable paseo-pins # Only if already installed
+paseo plugin install /absolute/path/to/paseo-pins --id paseo-pins-dev
 ```
 
-Enable plugins on the intended host first. The source path must exist on that host. Use one active Pins installation per daemon. After editing, run `paseo plugin reload paseo-pins`, then check `paseo plugin ls` and `paseo plugin logs paseo-pins`.
+Enable plugins on the intended host first. The source path must exist on that host. The separate `paseo-pins-dev` ID avoids colliding with the GitHub installation, but both copies use the same workspace pin data, so keep only one enabled per daemon. After editing, run `paseo plugin reload paseo-pins-dev`, then check `paseo plugin ls` and `paseo plugin logs paseo-pins-dev`.
+
+To return to the installed GitHub version, run `paseo plugin disable paseo-pins-dev`, then `paseo plugin enable paseo-pins`. To use an already-installed development copy again, disable `paseo-pins` and enable `paseo-pins-dev` instead of reinstalling it.
 
 ## Checks
 

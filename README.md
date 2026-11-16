@@ -49,10 +49,25 @@ Requires Node.js **22 or later**. In a clone of this repository:
 npm ci
 npm run hooks:install
 npm run check
-paseo plugin install "$PWD"
 ```
 
-After editing, run `paseo plugin reload paseo-pins`. The pre-commit hook runs lint, formatting, type checks, unused-code and duplicate-code checks, and tests.
+Install the checkout with a separate development ID. If the GitHub version is installed, disable it first:
+
+```sh
+paseo plugin disable paseo-pins # Only if already installed
+paseo plugin install "$PWD" --id paseo-pins-dev
+```
+
+Keep only one Pins installation enabled at a time: both use the same workspace pin data. After editing, run `paseo plugin reload paseo-pins-dev`.
+
+To switch back to the installed GitHub version:
+
+```sh
+paseo plugin disable paseo-pins-dev
+paseo plugin enable paseo-pins
+```
+
+The pre-commit hook runs lint, formatting, type checks, unused-code and duplicate-code checks, and tests.
 
 ## Contributing
 
