@@ -1,0 +1,16 @@
+{
+  "name": "pins-listing-capture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "lucide-react": "0.468.0",
+    "playwright": "1.65.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native-web": "0.21.2"
+  }
+}

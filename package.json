@@ -2,21 +2,38 @@
   "name": "paseo-pins",
   "private": true,
   "version": "0.1.0",
+  "description": "Useful workspace resources, kept current by your agents.",
+  "license": "MIT",
+  "author": "Alex Gaman",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agaman/paseo-pins.git"
+  },
+  "homepage": "https://github.com/agaman/paseo-pins#readme",
+  "bugs": {
+    "url": "https://github.com/agaman/paseo-pins/issues"
+  },
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "workspace",
+    "pins"
+  ],
   "files": [
+    "LICENSE",
     "paseo-plugin.json",
-    "OVERVIEW.md",
-    "OVERVIEW.*.md",
-    "index.client.ts",
+    "assets/*.png",
+    "docs/help.md",
+    "docs/configuration.md",
     "index.client.tsx",
     "index.server.ts",
-    "index.server.tsx",
     "client/",
     "server/",
     "shared/"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "lint": "biome check --formatter-enabled=false --error-on-warnings .",
     "format": "biome format --write .",
     "format:check": "biome format .",

@@ -3,6 +3,6 @@
   "minTokens": 100,
   "minLines": 10,
   "format": ["typescript", "tsx"],
-  "ignore": ["**/node_modules/**", "**/design/**", "**/tests/**", "**/coverage/**"],
+  "ignore": ["**/node_modules/**", "**/tests/**", "**/coverage/**"],
   "reporters": ["console"]
 }

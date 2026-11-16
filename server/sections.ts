@@ -1,4 +1,5 @@
-import type { PinBatchInput, PinDocument, PinSection } from "../shared/pins";
+import type { PinDocument } from "../shared/pin-document";
+import type { PinBatchInput, PinSection } from "../shared/pins";
 
 type Upsert = { status: "created" | "updated" | "unchanged"; section: PinSection };
 type Remove = { status: "removed"; section: PinSection } | { status: "absent"; key: string };

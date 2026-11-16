@@ -1,9 +1,9 @@
 import { type AgentToolContext, defineAgentTool } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import { applyPinsSchema, pinKeySchema, upsertPinSchema } from "../shared/pins";
-import { pinGuidance } from "./guidance";
+import { pinGuidance } from "./guidance/pins";
 import type { PinStore } from "./store";
-import type { PinTurns } from "./turns";
+import type { PinTurns } from "./summaries/turns";
 
 function workspace(context: AgentToolContext): string {
   if (!context.agent.workspaceId) throw new Error("Pins require a Paseo workspace.");

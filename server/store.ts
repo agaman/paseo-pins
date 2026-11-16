@@ -2,24 +2,24 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { type PinDocument, pinDocumentSchema } from "../shared/pin-document";
 import {
   type AcknowledgmentEntries,
   acknowledgmentEntriesSchema,
+  pinSnapshot,
+} from "../shared/pin-rpc";
+import {
   applyPinsSchema,
-  emptyRepoState,
   type Pin,
   type PinBatchInput,
-  type PinDocument,
   type PinInput,
-  pinDocumentSchema,
-  pinSnapshot,
-  type TurnSummary,
   workspaceIdSchema,
 } from "../shared/pins";
-import { summaryEntryUnread } from "../shared/summaries";
+import { emptyRepoState } from "../shared/repo-state";
+import { summaryEntryUnread, type TurnSummary } from "../shared/summaries";
 import { type RepoRead, readRepoConfig, reconcileRepo, requireConfigReady } from "./repo-config";
 import { applySections } from "./sections";
-import { recordChanges, type TurnIdentity } from "./summary-records";
+import { recordChanges, type TurnIdentity } from "./summaries/records";
 
 type UpsertResult = { status: "created" | "updated" | "unchanged"; pin: Pin; notified: boolean };
 type AcknowledgeResult = {

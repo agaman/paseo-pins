@@ -1,6 +1,11 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type AcknowledgmentEntries, acknowledgePins, listPins, setPinKept } from "../shared/pins";
+import {
+  type AcknowledgmentEntries,
+  acknowledgePins,
+  listPins,
+  setPinKept,
+} from "../shared/pin-rpc";
 
 export function usePins(hostId: string, workspaceId: string) {
   const list = useRpc(listPins);

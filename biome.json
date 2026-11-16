@@ -4,7 +4,6 @@
     "includes": [
       "**/*.{ts,tsx,js,jsx,json}",
       "!!**/node_modules",
-      "!!design",
       "!!package-lock.json",
       "!!coverage"
     ]

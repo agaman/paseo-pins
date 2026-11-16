@@ -1,224 +1,61 @@
-# Paseo pins
+<h1 align="center">Pins</h1>
 
-A Paseo plugin that lets agents maintain useful HTTP(S) links per workspace. Users open **Pins** in the workspace header (the workspace menu on narrow layouts) and click a link to open it externally.
+<p align="center">Useful workspace resources, kept current by your agents.</p>
 
-## Development and installation
+<p align="center">
+  <a href="assets/menu-light.png"><img src="assets/menu-light.png" alt="Light workspace menu with sections, update messages, and kept pins" width="32%"></a>
+  <a href="assets/menu-dark.png"><img src="assets/menu-dark.png" alt="The workspace menu in a dark theme" width="32%"></a>
+  <a href="assets/menu-compact.png"><img src="assets/menu-compact.png" alt="Compact web layout with touch controls" width="32%"></a>
+</p>
 
-Requires Node.js 22 or newer for development and Paseo 0.15.4 or newer on both daemon and app.
+<p align="center">
+  <a href="assets/chat-summary.png"><img src="assets/chat-summary.png" alt="New pins and update messages collected in an after-turn chat summary" width="100%"></a>
+</p>
+
+<p align="center"><sub>Light, dark, and compact menus · Updates in chat<br>Current components with sample data in a web preview. Click an image to enlarge.</sub></p>
+
+- **Your work, within reach:** Previews, pull requests, documents, and deliverables in each [Paseo](https://paseo.sh) workspace's menu.
+- **Maintained by agents:** Agents add useful links, update destinations, and prune obsolete resources as work progresses.
+- **Find and refresh:** A separate agent discovers resources from recent work and keeps the list current.
+- **Updates with context:** Meaningful changes carry a short message and an unread dot. Additions and updates also appear in chat.
+- **Keep what matters:** Protect individual pins from agent removal and organize related resources into sections.
+- **Shared with your project:** Define repository-owned links in [`.paseo/pins.json`](docs/configuration.md). Workspace pins and read state follow you across connected devices.
+
+## Get started
+
+Requires Paseo **0.15.4 or later** on both the daemon and app. Enable plugins in **Settings → Plugins**, then install from this repository:
+
+```sh
+paseo plugin add git:agaman/paseo-pins
+```
+
+Enable **Paseo tools** under **Settings → your host → Agents** so agents can manage pins. New or reopened agent sessions receive the tools and guidance.
+
+Open **Pins** in the workspace header, or the workspace menu on mobile. Press **Find pins** to discover useful links from recent work, or ask your agent to add one. Links open in your device's external browser.
+
+## Settings and data
+
+The menu's gear opens **Pins settings**. Use the workspace agent's model automatically, or choose a saved profile for this host.
+
+Find and refresh send recent conversation context and requested repository excerpts to the selected provider, using its normal allowance or billing. Pins and read state live on your daemon; uninstalling leaves that data in place. See [help and troubleshooting](docs/help.md) for details.
+
+## Development
+
+Requires Node.js **22 or later**. In a clone of this repository:
 
 ```sh
 npm ci
 npm run hooks:install
 npm run check
-paseo plugin install /absolute/path/to/paseo-pins
+paseo plugin install "$PWD"
 ```
 
-Plugins must already be enabled on the intended daemon. For a remote daemon, the source directory must exist on that machine. After editing, run `paseo plugin reload paseo-pins`. Check `paseo plugin ls` and `paseo plugin logs paseo-pins` for load errors.
+After editing, run `paseo plugin reload paseo-pins`. The pre-commit hook runs lint, formatting, type checks, unused-code and duplicate-code checks, and tests.
 
-One active installation per daemon is supported. Host runtime modules are development dependencies; Paseo supplies them when running the plugin.
+## Contributing
 
-## Code-quality checks
+[Report a bug or suggest an improvement](https://github.com/agaman/paseo-pins/issues). The [contribution guide](https://github.com/agaman/paseo-pins/blob/main/CONTRIBUTING.md) covers the source layout, validation, and screenshot tooling. See the [roadmap](https://github.com/agaman/paseo-pins/blob/main/docs/roadmap.md) for deferred ideas.
 
-Run `npm run check` for the complete local gate: lint/import order, formatting, TypeScript, unused code, duplication, and the focused tests. It does not modify files and stops on the first failure. Tool versions are pinned in `package.json`; use `npm ci` to install the lockfile versions.
+## License
 
-| Command | Checks |
-| --- | --- |
-| `npm run lint` | Biome recommended rules and import organization; warnings fail |
-| `npm run format:check` | Biome formatting for code and JSON configuration |
-| `npm run typecheck` | TypeScript with strict checking |
-| `npm run knip` | Unused files, exports, and dependencies, plus unresolved imports |
-| `npm run duplicates` | jscpd repeated runtime code, with a zero-percent threshold for blocks of at least 10 lines and 100 tokens |
-| `npm test` | Store behavior, workspace scoping, URL validation, and agent tools |
-
-Use `npm run format` to format files, or `npm run fix` to apply formatting, import organization, and safe lint fixes. Review the edits, then run `npm run check`.
-
-The checks exclude canvas prototypes under `design/`. Biome includes test code and configuration but leaves the generated lockfile alone. Knip explicitly starts from Paseo's two plugin entry points and the tests; it does not treat every source file as an entry point. Duplication detection excludes tests because repeating setup and assertions can make each case easier to understand. Adjust these boundaries deliberately when adding new code locations.
-
-Configuration: [biome.json](biome.json), [knip.json](knip.json), [.jscpd.json](.jscpd.json). Tool references: [Biome](https://biomejs.dev/reference/configuration/), [Knip](https://knip.dev/overview/configuration), [jscpd](https://jscpd.dev/start/configuration).
-
-The repository's [.githooks/pre-commit](.githooks/pre-commit) runs `npm run check` before each commit and blocks the commit on failure. Run `npm run hooks:install` once in each clone to configure Git's local `core.hooksPath`; Git does not copy local configuration when cloning. The hook checks the working tree without formatting, staging, or stashing files. With partially staged files, ensure the staged changes match what you intend to validate.
-
-## Agent tools
-
-- `pins_list({})` lists the calling agent's workspace pins.
-- `pins_apply({ upsert?, remove?, sections?, notify? })` atomically applies multiple changes and returns their results plus the resulting pin list.
-- `pins_upsert({ key, title, url, type?, section?, notify? })` creates or replaces a pin with a stable purpose key, such as `dev-preview`.
-- `pins_remove({ key })` removes a pin; an absent key is already removed.
-
-Agents cannot choose another workspace through these tools. Repeated identical updates are no-ops, and updates preserve creation order. Concurrent changes to different pins are serialized; the last committed update wins for the same key.
-
-Prefer `pins_apply` when changing multiple pins:
-
-```json
-{
-  "upsert": [
-    {
-      "key": "dev-preview",
-      "title": "Development preview",
-      "url": "https://preview.example.com",
-      "type": "app"
-    }
-  ],
-  "remove": ["old-preview"]
-}
-```
-
-Provide at least one operation, with at most 100 upserts and 100 removals. Duplicate keys within either list, keys appearing in both lists, and invalid pins reject the whole batch. Pins not mentioned are retained. Existing pins keep their order and creation time; new pins append in upsert order. All changes share the single-pin write queue and commit in one atomic write. A failed write leaves the previous list intact.
-
-The response contains `upsert` results (`created`, `updated`, or `unchanged`, each with its pin and a `notified` boolean), `remove` results (`removed` with its pin or `absent` with its key), and `pins`, `sections`, and `unreadCount`, the resulting snapshot at that commit. A follow-up `pins_list` is unnecessary. Repeating an identical batch is a no-op; omitted types preserve existing types. The single-pin tools use the same batch implementation internally.
-
-Agents choose a resource type; the plugin chooses its icon:
-
-| Type | Resource | Icon |
-| --- | --- | --- |
-| `app` | Development, staging, or deployed app | Globe |
-| `review` | Pull request or changes to review | GitPullRequest |
-| `docs` | Guides and reference | BookOpen |
-| `example` | Demos and code examples | Code |
-| `artifact` | Reports and deliverables | FileText |
-| `link` | Other links | Link |
-
-Omitting `type` preserves an existing pin's type; new pins and older saved pins default to `link`. The list shows a resource icon, title, and destination host (including the port). The resource link opens the original full URL; a separate checkmark acknowledges unread entries. There is no list heading, total pin count, or trailing external-link indicator.
-
-New agents receive additional maintenance instructions, preserving their existing system prompt. Existing agents receive guidance in tool descriptions after Paseo reopens their session, normally before their next idle prompt following plugin installation. Attached tools remain subject to the provider's Paseo-tool settings. The creation-time instructions remain saved if the plugin is later disabled, and apply only when the pins tools are available.
-
-## Sections
-
-Agents can group related pins beneath optional flat headings. Unsectioned pins appear first without a heading; populated sections follow creation order. Empty sections are retained for agents but hidden from the menu. Pin order within each group follows the original pin creation order. Chat summaries stay flat, and organization alone does not create notifications or summary entries.
-
-Create sections and assign pins in one atomic batch:
-
-```json
-{
-  "sections": {
-    "upsert": [{ "key": "preview", "title": "Preview" }]
-  },
-  "upsert": [{
-    "key": "dev-preview", "title": "Development preview",
-    "url": "https://preview.example.com", "type": "app", "section": "preview"
-  }]
-}
-```
-
-Omit `section` to preserve an existing assignment (new pins default to unsectioned); use `null` to ungroup. Unknown section keys reject the entire batch. Section titles are trimmed, nonempty, and limited to 80 characters; keys use the same format as pin keys. Renaming a section preserves its position. `sections.remove: ["preview"]` removes that heading and ungroups its surviving members without deleting pins. Explicitly assigning to a section removed in the same batch is invalid; moving to another section is allowed.
-
-Section-only batches are valid. At most 100 section upserts and 100 removals are accepted per batch. Duplicate/conflicting section keys are rejected; pin and section keys use separate namespaces. `sectionResults.upsert` reports `created`, `updated`, or `unchanged` with a section; `sectionResults.remove` reports `removed` with a section or `absent` with a key. All full snapshots include `sections: [{ key, title, source }]`, and every pin has `section: string | null`. Single-pin tools also return the full snapshot alongside their operation result. Global acknowledgment covers all groups and preserves organization.
-
-## Notifications and acknowledgment
-
-New pins start read, including when a creation request supplies `notify`. Creation-time notification IDs are consumed without notifying so retries stay silent. Existing pins from before this feature start read. Unread pins show a **7px dot over the icon** and a semibold title; the workspace control shows **Pins (N)**, returning to **Pins** at zero. Opening the menu does not mark anything read.
-
-For a meaningful update to an existing pin, add `notify` to an upsert or batch entry:
-
-```json
-{
-  "key": "dev-preview",
-  "title": "Development preview",
-  "url": "https://preview.example.com",
-  "notify": { "id": "build-8d31a2", "reason": "Updated onboarding is ready to review." }
-}
-```
-
-Reuse an event ID for retries; choose a fresh ID for a different meaningful update. IDs are trimmed and limited to 128 characters; required reasons to 240. A new event can notify without a URL change. Routine edits without `notify` preserve read state. Retrying any consumed event ID does not notify again, even after a newer event or acknowledgment. Each unread pin counts once. Every `notify` must include a nonempty `reason` explaining what changed and why it matters. The message wraps beside a 2px theme-accent line below the domain while unread in the menu; acknowledgment hides it there, while chat retains the captured message as history. Legacy saved updates without a reason still load without inventing a message.
-
-Users can open a link, use its **Mark as read** checkmark (always visible on unread pins), or the top-right **ListChecks** action (tooltip: “Mark as read”) to mark all displayed updates read. The action stays visible but disabled when everything is read. Read state is shared across clients connected to this workspace on the same daemon. Acknowledgment captures the displayed notification token, so it cannot clear a newer update or a removed-and-recreated pin. Agents cannot acknowledge through maintenance tools.
-
-The `pins.acknowledge` client RPC accepts `{ workspaceId, entries: [{ key, attentionToken }] }` and returns per-entry outcomes plus `pins`, `sections`, and `unreadCount`. Link opening acknowledges only after the opener succeeds. If acknowledgment fails after opening, **Retry** retries persistence without opening another tab. Chat links acknowledge only their captured update, even when its destination has since changed.
-
-## Data
-
-Pins live on the daemon machine under `~/.local/share/paseo-pins/workspaces/`, in one JSON file per workspace ID. Set the daemon's `PASEO_PINS_DATA_DIR` environment variable to an absolute path to change the root. Restarting the plugin picks up its inherited environment; changing the daemon environment itself may require a later daemon restart.
-
-Writes are serialized per workspace and committed with an atomic rename. Corrupt or newer-version data is preserved and reported as an error. Files remain after archive, disablement, or uninstall. A new workspace ID starts a new list, even for the same directory. Version 1–6 documents are read without rewriting and migrate to version 7 on the next successful mutation or configuration reconciliation. Pins predating Keep start with Keep off; existing Keep state is preserved. Version 7 adds repository ownership and configuration status; version 6 added user-owned removal protection; version 5 added the current/latest refresh run beside ordered section definitions and nullable pin assignments, preserving pin lifetime IDs, the turn-summary journal, attention tokens, shared read state, and consumed notification IDs. Pin mutations and summary candidates commit together. Earlier plugin versions cannot read version 7; retain a data backup if you need to downgrade.
-
-Pins are links, not a secret store. The plugin rejects non-HTTP(S) schemes and embedded URL credentials, but agents must also avoid putting secrets in queries. It does not fetch links, start servers, or create tunnels. A remote preview address must be reachable from the user's device.
-
-Mounted workspace controls and the popover share a query cache and refresh every two seconds. Other connected clients converge through this polling; failures retain the previous count/list and the menu exposes an error with Retry. Browser popup blocking cannot always be detected by the host opener.
-
-See [PLAN.md](PLAN.md) for the agreed scope and product-review checkpoint. Sidebar access, file pins, and explicit Paseo-browser opening are deferred. After-turn summaries are implemented; see [their plan](plans/02-after-turn-summaries.md) and [validation checkpoint](VALIDATION.md).
-
-See [FUTURE_PROJECTS.md](FUTURE_PROJECTS.md) for the ten future project briefs and the product decisions behind them. Project 1 is committed; project 2 is implemented for working-feature review. The remaining briefs are planning notes.
-
-## After-turn summaries
-
-New pins and explicit notifications appear in one block per originating agent turn. The full-width block follows Paseo’s command-group styling: a plain collapsible heading and indented rows beside a vertical rule, without an enclosing card. Collapse hides all rows; expansion does not change read state. The block shows three historical entries initially, with **Show all** for the remainder. Its **Mark as read** action acknowledges every eligible captured update, including hidden entries. Failed or canceled turns still show committed changes with **Turn interrupted**. Routine edits/removals alone do not produce a block, and old changes are not backfilled.
-
-Historical entries keep their original title, URL, type, reason, and attention token (null for additions without a later flagged update). Removing a pin does not erase its chat links. Summary RPCs validate workspace, conversation, and summary identity; paginated reads are limited to 25 entries per page. Tool mutations reject a missing turn identity before writing so changes cannot silently be attributed to another turn.
-
-Turn identity includes the provider's ID and the host's turn start time, so a provider restarting its counter does not collide with an older completed summary. That identity survives plugin reloads; existing historical summary IDs and links remain intact. If the host cannot supply a valid start time, mutations fail before writing and can be retried when the snapshot is available. Recovery waits when a matching active turn has an incomplete timestamp.
-
-An end event supplies only the provider ID. If no tool call captured the turn instance in this plugin session, Pins cannot safely assign that event's outcome to a saved summary. Once the host confirms that the saved turn is no longer active, a recent unfinished summary may be published as interrupted instead of guessing that it completed. If its start time is more than five minutes old, it stays in the journal without publication.
-
-**Restart limitation:** the shipped 0.15.4 daemon does not retain plugin timeline rows across daemon restarts in the tested configuration. Previously published summaries are never replayed into chat, even if their host rows are missing. Undelivered summaries retry every 30 seconds for up to five minutes after completion is recorded. An unfinished summary is eligible for recovery only within five minutes of its start time. Retries use the normal **Pins** heading, check for an existing row before appending, and preserve the journal after expiry. Retry checks begin on the first plugin hook/RPC connection and also run when opening a conversation. No Paseo source changes are required or made.
-
-
-## Agent-powered refresh
-
-Refresh-result visibility is owned by the daemon and shared across devices. Manual dismissal is persisted against the exact run ID. Successful results are marked viewed after three seconds of foreground viewing; they remain readable until the menu closes, then stay hidden across reopening or client reloads. Unseen successful results expire after 15 minutes. Errors and canceled results remain until explicitly dismissed; active runs and pending worker cleanup always remain visible. The latest run is retained for lifecycle recovery even when its result is hidden.
-
-An empty list shows a **Find pins** button with a Search icon beneath “No pins yet”. Populated lists use the compact **Refresh pins** toolbar action. Discovery shows “Finding pins…” throughout the run, even as pins appear; maintenance shows “Refreshing pins…”. Both use the existing agent-powered refresh flow. No saved profile is required: **Automatic** uses the provider and current model of the most recently active non-archived, non-refresh agent in this workspace whose provider is available. Other settings retain provider defaults. With no suitable workspace agent, it selects an available provider (ordered by provider ID) and its advertised default model, or first selectable model if none is marked default. All discovery and creation use Paseo’s public APIs; no provider is hard-coded. Open the gear in the Pins menu, or the Pins settings button under **Settings → Plugins**, to choose a saved profile under **Agent refresh**. This overrides Automatic across workspaces on the host. A missing explicitly selected profile requires choosing Automatic or another profile; it is never silently replaced.
-
-Refresh chooses its strategy once, from the pin count at the start. An empty list uses **discovery** to establish a curated initial set; a populated list uses **maintenance**, focusing on recent work, addressed/superseded items, and useful new resources. Empty does not override explicit removal instructions, and unavailability alone does not justify deletion.
-
-The worker identifies important work before looking for destinations. It reviews up to ten recent workspace conversations: discovery initially scans up to four 50-entry pages per conversation, while maintenance starts with one. Narrative excerpts include non-URL work; a separate bounded URL index groups repeat mentions and provides source references for surrounding context. Long messages and omitted page entries can be retrieved in chunks. The worker uses older history or read-only repository evidence for specific gaps. At least half of the 80,000-character delivery budget is reserved for follow-up retrieval. The index is a retrieval aid, not a popularity ranking or complete workspace inventory.
-
-The final report internally accounts for active priorities as a selected destination, coverage by an existing pin, no useful destination after investigation, or an unresolved gap. Reports validate source and pin references; semantic relevance still depends on the agent. Legacy runs retain their prior report contract. The selected provider receives the context; Pins persists source references and concise assessments, not another copy of the conversations. The URL index is reconstructed after reload.
-
-Refresh may discover a small curated set of HTTP(S) links, update/remove existing pins, and reorganize sections. New discoveries start read. The worker is instructed to change only pins and sections, never repair resources, edit files, or restart services. This task instruction is not a provider-wide sandbox; the plugin enforces scope and revision checks in its own mutation tools and preserves the profile’s permission behavior.
-
-Progress and pin-change totals appear beneath the toolbar. Only failed, timed-out, or permission-limited runs offer expandable troubleshooting details. Routine uncertainty and unverified counts stay out of the menu; a refresh with no changes says “No pins changed.” Cancel, permission requests, errors, and the five-minute deadline retain committed changes and explain unfinished work. The seven scoped refresh tools are automatically approved per request through Paseo’s permission API for the active worker only, including workspace file listing, literal text search, and line-based reading. File inspection derives its root from the worker’s workspace, rejects traversal and symlinks, excludes dependency/build/metadata directories, and bounds file sizes and output. It is used only to fill specific conversation-context gaps; skipped or truncated results remain incomplete evidence. Other permission requests are denied and the worker is archived rather than waiting for approval. Unverified pins are retained. Only one run may be active per workspace; unsuccessful worker cleanup blocks another run until archival is confirmed. Dismissal hides the result only for the current client session.
-
-Version 5 stores pin mutations and run-result entries atomically. Scoped worker tools are `pins_refresh_list`, `pins_refresh_context`, `pins_refresh_apply`, and `pins_refresh_report`. Apply batches require operation IDs, inspected resource revisions, explanations, and source references for new pins. Section removal also requires revisions for every affected member. Normal agents retain their existing tools. User acknowledgment does not create revision conflicts; newer resource edits and notification events do.
-
-Recovery starts when a plugin hook or RPC next supplies a Paseo connection, then observes active workers every two seconds. Deadlines remain fixed across reloads and are checked in every worker write. An uncertain launch is reconciled by its persisted worker ID rather than launching a replacement. Workers are ordinary workspace conversations and are archived after completion; their own normal pin summaries never appear in the main conversation.
-
-Successful refresh totals (including partial results shown as normal totals) dismiss when you close the menu after at least three seconds of foreground viewing during that opening. Closing sooner leaves them for the next opening. Completion while the menu is closed is shown next time; running, canceled, error, and pending-cleanup states do not auto-dismiss. The result stays visible while the menu remains open. Dismissal is local to the current app session and scoped to host, workspace, and refresh run; manual dismissal remains available.
-
-### Keep useful pins
-
-Use the pin icon beside a resource to keep it: outline means not kept, filled means kept. Controls appear on hover or keyboard focus and stay available on touch; kept indicators stay visible. Keep is shared across the workspace and preserves ordering and sections. Agents can update a kept pin’s title, destination, type, or section, but cannot remove it or change its Keep state. A mixed batch containing a protected removal fails atomically, including refresh batches. Only the menu exposes Keep changes, and requests identify the exact pin lifetime to reject stale actions.
-
-Mark as read now sits beside the update message. Keeping a pin neither acknowledges its notification nor creates a chat summary.
-
-
-### Repository configuration
-
-Place a plain JSON file at `.paseo/pins.json` in a workspace checkout to populate pins automatically. Each worktree reads its own file. Static HTTP(S) links only; variable substitution, commands, and automatic `.env` loading are deferred.
-
-```json
-{
-  "version": 1,
-  "sections": [{ "key": "resources", "title": "Resources" }],
-  "pins": [
-    {
-      "key": "handbook",
-      "title": "Project handbook",
-      "url": "https://docs.example.com",
-      "type": "docs",
-      "section": "resources"
-    }
-  ]
-}
-```
-
-`version` and `pins` are required; `sections` is optional. Each pin needs a unique purpose key, title, and URL. Type defaults to `link`; omitted/null section means unsectioned. Every referenced section must be declared in the file. Keys and text limits match agent tools; at most 100 pins and 100 sections, in a regular UTF-8 file up to 256 KiB. Unknown fields/versions, duplicate keys, symlinks, embedded URL credentials, and substitution syntax are rejected.
-
-Configured pins share the normal sections. A muted gear and **Repo** label beside the hostname open a source-information popover on hover, focus, or tap. They have no Keep action. The file owns definitions and takes over matching agent-managed keys, including kept pins, while preserving lifetime, position, and notification state. Configured section names are file-owned; agents can assign their own pins to them. New entries append in file order; reordering file arrays does not reorder existing entries. Removing a configured pin removes it from the list; removing a configured section ungroups its surviving agent-managed members. Historical chat references remain unchanged.
-
-Loading and editing the file never create unread notifications or chat summaries. Agents may still notify meaningful changes independently:
-
-```json
-{
-  "notify": [{
-    "key": "handbook",
-    "instanceId": "<instanceId from pins_list>",
-    "expectedUrl": "https://docs.example.com",
-    "id": "guide-revised",
-    "reason": "The deployment guide now covers the new staging workflow."
-  }]
-}
-```
-
-Pass this to `pins_apply`. The pin must still have the inspected lifetime and destination; each notification requires a message. A consumed event ID is a silent retry within that lifetime, even after a later destination edit. Do not combine standalone `notify` with `upsert`/`remove` for the same key. Existing `upsert.notify` remains available for agent-managed pins. Config-owned definitions reject pin-tool writes and removals atomically; use the file for those changes. Scoped refresh notifications also require the inspected revision and the existing operation ID.
-
-Reconciliation runs on menu/list access and before pin operations or refresh work. Existing two-second polling from mounted header, menu, and chat-summary components notices edits; no filesystem watcher or whole-repository scan is added. Invalid files preserve the last valid configuration and unrelated pins, expose a bounded diagnostic, and pause resource mutations and new refresh runs. Listing and acknowledgment remain available. Fix the file or use Retry to recheck. File deletion is confirmed across two checks at least 500ms apart before removing its owned entries; an inaccessible workspace is never treated as deletion. A valid configuration is committed quietly before a requested agent batch; rejecting that batch does not undo the accepted file edit.
+[MIT license](LICENSE).

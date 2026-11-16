@@ -3,7 +3,8 @@ import { constants, type Stats } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { type PinDocument, pinKeySchema, upsertPinSchema } from "../shared/pins";
+import type { PinDocument } from "../shared/pin-document";
+import { pinKeySchema, upsertPinSchema } from "../shared/pins";
 
 const configPin = upsertPinSchema
   .omit({ notify: true })

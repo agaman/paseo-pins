@@ -4,10 +4,10 @@ import type {
   PluginButtonRegistration,
   PluginClientContext,
 } from "@getpaseo/plugin/client";
-import { PinsHeader } from "./client/pins-header";
-import { PinsPopover } from "./client/pins-popover";
-import { RefreshSettings } from "./client/refresh-settings";
-import { TurnSummary } from "./client/turn-summary";
+import { PinsHeader } from "./client/menu/pins-header";
+import { PinsPopover } from "./client/menu/pins-popover";
+import { RefreshSettings } from "./client/refresh/settings";
+import { TurnSummary } from "./client/summaries/turn-summary";
 import { summaryReferenceSchema } from "./shared/summaries";
 
 export default function contribute(client: PluginClientContext) {

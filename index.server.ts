@@ -1,14 +1,14 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { withPinGuidance } from "./server/guidance";
-import { type Paseo, workerLabel } from "./server/refresh-context";
-import { RefreshCoordinator } from "./server/refresh-coordinator";
-import { refreshGuidance } from "./server/refresh-guidance";
-import { RefreshResults } from "./server/refresh-results";
-import { createRefreshTools } from "./server/refresh-tools";
+import { withPinGuidance } from "./server/guidance/pins";
+import { type Paseo, workerLabel } from "./server/refresh/context";
+import { RefreshCoordinator } from "./server/refresh/coordinator";
+import { refreshGuidance } from "./server/refresh/guidance";
+import { RefreshResults } from "./server/refresh/results";
+import { createRefreshTools } from "./server/refresh/tools";
 import { dataDirectory, PinStore } from "./server/store";
+import { PinTurns } from "./server/summaries/turns";
 import { createPinTools } from "./server/tools";
-import { PinTurns } from "./server/turns";
-import { acknowledgePins, listPins, setPinKept } from "./shared/pins";
+import { acknowledgePins, listPins, setPinKept } from "./shared/pin-rpc";
 import {
   acknowledgeRefreshResult,
   cancelRefresh,

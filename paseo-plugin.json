@@ -1,6 +1,13 @@
 {
   "id": "paseo-pins",
   "name": "Pins",
-  "description": "Useful workspace links, maintained by your agents.",
+  "description": "Useful workspace resources, kept current by your agents.",
+  "icon": "assets/icon.png",
+  "media": [
+    "assets/menu-light.png",
+    "assets/chat-summary.png",
+    "assets/menu-dark.png",
+    "assets/menu-compact.png"
+  ],
   "requirements": { "paseo": ">=0.15.4" }
 }
