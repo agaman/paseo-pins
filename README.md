@@ -3,13 +3,7 @@
 <p align="center">Useful workspace resources, kept current by your agents.</p>
 
 <p align="center">
-  <a href="assets/menu-light.png"><img src="assets/menu-light.png" alt="Light workspace menu with sections, update messages, and kept pins" width="360"></a>
-  <br><sub>Light menu</sub>
-</p>
-
-<p align="center">
-  <a href="assets/menu-dark.png"><img src="assets/menu-dark.png" alt="The workspace menu in a dark theme" width="360"></a>
-  <br><sub>Dark menu</sub>
+  <a href="assets/menu-gallery.png"><img src="assets/menu-gallery.png" alt="Light menu and dark menu side by side, showing grouped pins and update messages" width="740"></a>
 </p>
 
 <p align="center">

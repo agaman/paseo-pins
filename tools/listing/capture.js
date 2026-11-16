@@ -81,6 +81,7 @@ try {
     console.log(`Captured ${name}`);
     await page.close();
   }
+  await captureMenuGallery(browser);
   const page = await browser.newPage({
     viewport: { width: 256, height: 256 },
     deviceScaleFactor: 2,
@@ -93,4 +94,34 @@ try {
   await browser?.close();
   if (server) await new Promise((resolve) => server.close(resolve));
   await rm(output, { recursive: true, force: true });
+}
+
+async function captureMenuGallery(browser) {
+  const figures = await Promise.all(
+    ["light", "dark"].map(async (theme) => {
+      const png = await readFile(path.join(root, "assets", `menu-${theme}.png`));
+      const label = theme === "light" ? "Light menu" : "Dark menu";
+      return `<figure class="${theme}"><img src="data:image/png;base64,${png.toString("base64")}" alt="${label}"><figcaption>${label}</figcaption></figure>`;
+    }),
+  );
+  const page = await browser.newPage({
+    viewport: { width: 740, height: 1000 },
+    deviceScaleFactor: 2,
+  });
+  await page.setContent(`<!doctype html><html lang="en"><meta charset="utf-8">
+    <style>
+      body{margin:0;background:transparent;font:14px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      main{display:flex;gap:20px;width:740px;align-items:flex-start}
+      figure{margin:0;width:360px}
+      .light{background:#fff;color:#71717a}.dark{background:#18181b;color:#a1a1aa}
+      img{display:block;width:100%;height:auto}
+      figcaption{text-align:center;padding:0 0 12px}
+    </style><main>${figures.join("")}</main></html>`);
+  await page.locator("img").evaluateAll((images) => Promise.all(images.map((img) => img.decode())));
+  await page.locator("main").screenshot({
+    path: path.join(root, "assets/menu-gallery.png"),
+    omitBackground: true,
+  });
+  await page.close();
+  console.log("Captured menu-gallery");
 }
