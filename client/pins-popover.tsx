@@ -25,6 +25,22 @@ export function PinsPopover({
   const refresh = useRefresh(host.id, workspaceId);
   const run = refresh.query.data?.run;
   const refreshing = Boolean(run && (!run.outcome || run.cleanupPending));
+  const empty = query.data?.pins.length === 0;
+  const startingDiscovery = useRef(false);
+  const discovery = refreshing
+    ? run?.initialCount === 0
+    : refresh.busy
+      ? startingDiscovery.current
+      : empty;
+  const refreshLabel = discovery ? "Find pins" : "Refresh pins";
+  const refreshIcon = discovery ? "Search" : "RefreshCw";
+  const refreshDisabled =
+    refresh.busy || refreshing || refresh.query.isPending || refresh.query.isError || !query.data;
+  function refreshPins() {
+    startingDiscovery.current = empty;
+    if (refresh.query.data?.configured) void refresh.act();
+    else openSettings();
+  }
   const touch = useTouchControls();
   const native = layout.platform !== "web";
   // Paseo owns the background. Match its surface only for the unread dot's cutout.
@@ -126,7 +142,7 @@ export function PinsPopover({
           marginVertical: -12,
         }}
       >
-        {
+        {!empty && (
           <View
             testID="pins-actions"
             style={{
@@ -146,17 +162,14 @@ export function PinsPopover({
             }}
           >
             <MenuAction
-              icon="RefreshCw"
-              label="Refresh pins"
-              tooltip="Refresh pins"
+              icon={refreshIcon}
+              label={refreshLabel}
+              tooltip={refreshLabel}
               theme={theme}
               touch={touch}
-              disabled={refresh.busy || refreshing || refresh.query.isPending}
+              disabled={refreshDisabled}
               busy={refresh.busy || refreshing}
-              onPress={() => {
-                if (refresh.query.data?.configured) void refresh.act();
-                else openSettings();
-              }}
+              onPress={refreshPins}
             />
             <MenuAction
               icon="ListChecks"
@@ -171,7 +184,7 @@ export function PinsPopover({
               }}
             />
           </View>
-        }
+        )}
         {query.data?.config?.error && (
           <View style={{ padding: 8, gap: 5 }}>
             <Text accessibilityRole="alert" style={muted}>
@@ -238,8 +251,21 @@ export function PinsPopover({
             )}
           </View>
         )}
-        {query.data?.pins.length === 0 && (
-          <Text style={{ ...muted, textAlign: "center", paddingVertical: 12 }}>No pins yet</Text>
+        {empty && (
+          <View style={{ alignItems: "center", gap: 8, paddingVertical: 12 }}>
+            <Text style={{ ...muted, textAlign: "center" }}>No pins yet</Text>
+            <MenuAction
+              icon={refreshIcon}
+              label={refreshLabel}
+              tooltip={refreshLabel}
+              showLabel
+              theme={theme}
+              touch={touch}
+              disabled={refreshDisabled}
+              busy={refresh.busy || refreshing}
+              onPress={refreshPins}
+            />
+          </View>
         )}
         {groups.map((group, index) => (
           <View

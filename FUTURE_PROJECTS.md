@@ -2,7 +2,7 @@
 
 Make workspace resources easier to notice, revisit, and maintain. These project briefs extend the existing agent-managed Pins menu with attention indicators, chat integration, richer destinations, and durable organization. They record the product decisions from our discussion for later implementation.
 
-**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Projects 5 (agent-powered refresh) and 7 (sections) are implemented and committed. Project 10 (Keep) is implemented, including user-owned removal protection, shared workspace state, and separate acknowledgment controls. Project 8 (repo configuration) is implemented for static HTTP(S) links; variable substitution remains deferred. Projects 4 and 6 remain briefs. Link health and expiry was removed from the roadmap: pin maintenance should remain agent-mediated, without asking users to triage health indicators. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
+**Status:** projects 1 and 2 are implemented and committed; native-device verification and documented host recovery limitations remain. Project 3 (inline chips) is deferred because the supported API cannot extend inline Markdown without replacing whole message rendering. Projects 5 (agent-powered refresh) and 7 (sections) are implemented and committed. Project 10 (Keep) is implemented, including user-owned removal protection, shared workspace state, and separate acknowledgment controls. Project 8 (repo configuration) is implemented for static HTTP(S) links; variable substitution remains deferred. Project 4 (thumbnail previews) is deferred because automatic capture would require a plugin-owned browser runtime, with separate authentication and network-access constraints. Workspace file destinations in project 6 are deferred because the supported APIs cannot preserve the current menu, acknowledgment, and native mobile behavior; browser and diff destinations still need separate capability checks. Link health and expiry was removed from the roadmap: pin maintenance should remain agent-mediated, without asking users to triage health indicators. Existing canvas designs were cleared at the user’s request; prior designs remain in Git history at `c3716d3`.
 
 ## Project index
 
@@ -78,6 +78,8 @@ Let an agent refer to a pin within ordinary prose using a compact clickable chip
 
 ## 4. Thumbnail previews
 
+**Deferred (2026-11-16):** investigation of SDK 0.15.4 and public documentation found no direct plugin screenshot API. Paseo’s agent browser tools require a connected desktop app. A plugin-owned Playwright worker on the daemon is technically feasible: an isolated prototype captured public and local pages, but fresh contexts did not inherit authentication and protected pages redirected to login. This approach adds browser installation and maintenance, uses the daemon’s network rather than the viewing device’s, and needs a separate authentication design. Native-device image rendering remains untested. Revisit if a suitable supported capture capability becomes available or maintaining a plugin-owned runtime becomes worthwhile. No capture infrastructure was added. See [Paseo browser automation](https://paseo.sh/docs/browser) and [Playwright browser requirements](https://playwright.dev/docs/browsers).
+
 Show a cached thumbnail when the user hovers over a web pin, helping them recognize the destination before opening it.
 
 - Automatically capture the page when the pin is created or explicitly marked meaningfully updated. The initial scope is web destinations, with no agent-supplied image override.
@@ -103,6 +105,8 @@ Add **Refresh pins** to discover links for ongoing work and maintain the list in
 **Technical basis:** the detailed plan uses supported workspace-agent creation, saved profiles, lifecycle observation, and archival, with an isolated lifecycle check before implementation proceeds.
 
 ## 6. Additional destinations
+
+**Workspace files deferred (2026-11-14):** checked installed/latest published SDK 0.15.4, current public docs, and released source. There is no public file-opening method for custom pin rows. The public Markdown component supports file links where workspace context is available, but exposes no click/success callback for acknowledgment or whole-row opening. Source inspection also indicates native menu sheets do not restore the required file-link context; this was not tested on a physical device. File-panel registration provides renderers for already-opened files, not navigation. Revisit when supported APIs cover menu and summary opening across platforms; a Pins-owned file reader is outside the agreed scope. Browser and diff destinations remain unverified separately. See [Markdown](https://paseo.sh/docs/plugins/reference#markdown), [file panels](https://paseo.sh/docs/plugins/reference#file-panels), and the [released menu implementation](https://github.com/getpaseo/paseo/blob/v0.15.4/packages/app/src/components/ui/menu/menu-surface.tsx).
 
 Expand pins beyond external HTTP(S) links to workspace files, Paseo browser pages, and diffs.
 

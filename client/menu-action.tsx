@@ -12,6 +12,7 @@ export function MenuAction({
   disabled,
   busy,
   expanded,
+  showLabel = false,
   onPress,
 }: {
   icon: string;
@@ -22,10 +23,12 @@ export function MenuAction({
   disabled: boolean;
   busy: boolean;
   expanded?: boolean;
+  showLabel?: boolean;
   onPress(): void;
 }) {
   const tip = useActionTooltip(touch, disabled);
-  const { hovered, focused, showTooltip } = tip;
+  const { hovered, focused } = tip;
+  const showTooltip = tip.showTooltip && !showLabel;
   const size = touch ? 44 : 24;
   return (
     <View style={{ position: "relative", zIndex: showTooltip ? 1 : 0 }}>
@@ -43,19 +46,31 @@ export function MenuAction({
           onPress();
         }}
         style={({ pressed }) => ({
-          width: size,
-          height: size,
+          width: showLabel ? undefined : size,
+          height: showLabel ? Math.max(size, 32) : size,
+          paddingHorizontal: showLabel ? 10 : 0,
+          flexDirection: "row",
+          gap: 6,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 8,
           borderWidth: 1,
           borderColor: focused ? theme.colors.accent : "transparent",
           backgroundColor:
-            !disabled && (hovered || pressed || focused) ? theme.colors.border : "transparent",
+            !disabled && (hovered || pressed || focused)
+              ? theme.colors.border
+              : showLabel
+                ? theme.colors.surface2
+                : "transparent",
           opacity: disabled ? 0.4 : 1,
         })}
       >
         <Icon name={icon} size={16} color={theme.colors.foregroundMuted} />
+        {showLabel && (
+          <Text style={{ color: theme.colors.foreground, fontSize: 13, lineHeight: 18 }}>
+            {label}
+          </Text>
+        )}
       </Pressable>
       {showTooltip && (
         <View

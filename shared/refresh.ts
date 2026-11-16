@@ -81,16 +81,17 @@ export function refreshHasError(run: RefreshView): boolean {
   );
 }
 export function refreshTitle(run: RefreshView): string {
+  const task = run.initialCount === 0 ? "Pin search" : "Refresh";
   const labels = {
-    failed: "Refresh failed",
-    canceled: "Refresh canceled",
-    timed_out: "Refresh timed out",
-    permission_limited: "Refresh needs permission",
+    failed: `${task} failed`,
+    canceled: `${task} canceled`,
+    timed_out: `${task} timed out`,
+    permission_limited: `${task} needs permission`,
   };
   if (run.outcome && run.outcome in labels) return labels[run.outcome as keyof typeof labels];
-  if (run.state === "stopping") return "Stopping refresh…";
-  if (run.state !== "finished")
-    return run.initialCount ? "Refreshing pins…" : "Finding useful pins…";
+  if (run.state === "stopping")
+    return run.initialCount === 0 ? "Stopping search…" : "Stopping refresh…";
+  if (run.state !== "finished") return run.initialCount ? "Refreshing pins…" : "Finding pins…";
   const counts = (["added", "updated", "removed"] as const)
     .map((kind) => {
       const count = run.changes.filter((change) => change.kind === kind).length;

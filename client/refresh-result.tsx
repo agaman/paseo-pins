@@ -34,6 +34,7 @@ export function RefreshResult({
   const shown = useRef(visibleNow);
   if (visibleNow) shown.current = true;
   const active = !run.outcome;
+  const cancelLabel = run.initialCount === 0 ? "Cancel search" : "Cancel refresh";
   const hasError = refreshHasError(run);
   useRefreshResultView(presentation.autoDismiss && presentation.state === "visible", () =>
     acknowledge("viewed"),
@@ -86,8 +87,8 @@ export function RefreshResult({
           theme={theme}
           touch={touch}
           icon="X"
-          label={active ? "Cancel refresh" : "Dismiss refresh result"}
-          tooltip={active ? "Cancel refresh" : "Dismiss"}
+          label={active ? cancelLabel : "Dismiss refresh result"}
+          tooltip={active ? cancelLabel : "Dismiss"}
           disabled={busy || dismissing || (!active && presentation.state === "active")}
           busy={busy || dismissing}
           onPress={() => {
