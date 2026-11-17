@@ -42,6 +42,7 @@
     "knip": "knip",
     "duplicates": "jscpd .",
     "check:distribution": "node --import tsx tools/ci/check-distribution.ts",
+    "check:install": "node tools/ci/smoke-install.js",
     "release": "node --import tsx tools/release.ts",
     "hooks:install": "git config --local core.hooksPath .githooks",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm run duplicates && npm test"

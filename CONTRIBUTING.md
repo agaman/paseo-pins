@@ -20,7 +20,19 @@ To return to the installed GitHub version, run `paseo plugin disable paseo-pins-
 
 GitHub Actions runs that gate on Node.js 22 and 24 for pull requests and pushes to `main`. It also runs `npm run check:distribution`, which checks that the manifest, runtime entries, transitive local imports, and declared local images are tracked regular files. Pins has no dependency installation step, so the check also rejects imports of non-host packages, including type-only imports that Paseo must resolve while compiling. Derive client types from `PluginClientContext` rather than importing `@getpaseo/client` directly. Stage new distribution files before running this check locally. Remote image availability and live Paseo behavior still need manual verification.
 
-After the first successful Actions run, configure the `main` branch ruleset to require `Checks (Node 22)` and `Checks (Node 24)` before merging. The workflow uses read-only permissions and does not publish releases. Failed runs can be rerun from Actions; newer commits cancel superseded runs.
+A separate `Clean install (Paseo 0.15.4)` job installs the minimum supported Paseo CLI outside the plugin checkout. It exports the exact checked-out commit without development dependencies, starts a disposable daemon, and requires installation and reload to reach `running`. The daemon uses a temporary home, socket, and Pins data directory with relay disabled; no agent turns or provider credentials are needed. Failures retain command and daemon logs as an Actions artifact. This checks compilation and server startup, not client rendering or agent behavior.
+
+Run the same test locally with Paseo 0.15.4 on your `PATH`:
+
+```sh
+npm run check:install
+# Optionally also verify a published tag resolves to the expected commit:
+npm run check:install -- --revision v0.1.3 --git-ref v0.1.3
+```
+
+The smoke test uses committed files (`HEAD` by default), not staged or working-tree changes. It accepts `--cli /absolute/path/to/paseo` and `--logs-dir /absolute/path/to/logs`. Logs remain available after its temporary daemon and data are removed. When raising the minimum Paseo version, update the smoke-test job's CLI version and required check name too; the script checks that its CLI version matches the tested manifest's minimum.
+
+After the first successful Actions run, configure the `main` branch ruleset to require `Checks (Node 22)`, `Checks (Node 24)`, and `Clean install (Paseo 0.15.4)` before merging. The workflow uses read-only permissions and does not publish releases. Failed runs can be rerun from Actions; newer commits cancel superseded runs.
 
 Use `npm run format` for formatting or `npm run fix` for Biome's safe fixes. For partially staged changes, ensure the staged content matches what you validated. Duplication checks exclude tests.
 
@@ -50,7 +62,7 @@ Agent-tool contracts live in [`shared/pins.ts`](shared/pins.ts), with usage guid
 
 Releases use annotated Git tags and GitHub Releases. The package remains private; there is no npm publication. `package.json` is the version source, and `package-lock.json` must agree. Only stable versions such as `0.1.0` are supported.
 
-Before releasing, check the manifest's minimum Paseo version, metadata, README, OVERVIEW, and screenshots. `OVERVIEW.md` supplies the registry listing page: keep its setup, data access, and limitations current, without install commands. Test a fresh Git installation of the intended commit on an isolated daemon. Community registry submission remains a separate manual step; the listing uses the overview from the approved revision, not automatically from the newest GitHub release.
+Before releasing, check the manifest's minimum Paseo version, metadata, README, OVERVIEW, and screenshots. `OVERVIEW.md` supplies the registry listing page: keep its setup, data access, and limitations current, without install commands. The release workflow tests a fresh Git installation of the tag on an isolated daemon. Community registry submission remains a separate manual step; the listing uses the overview from the approved revision, not automatically from the newest GitHub release.
 
 1. If the current version already has a tag (including a failed release), run `npm version patch --no-git-tag-version` (or `minor` / `major`). Otherwise use the current version. The version command updates both package files without creating a tag.
 2. Review the changes, run `npm run check` and `npm run check:distribution`, then commit and push through the normal process. Wait for CI to pass on `main`.
@@ -68,7 +80,7 @@ Before releasing, check the manifest's minimum Paseo version, metadata, README, 
 
 The script requires local `main` to match the current `origin` main branch. The dry run reads the remote but makes no changes. Existing tags are never replaced. If a push fails, fix the connection or permission issue and rerun the command; it reuses a matching local annotated tag.
 
-Pushing `v*` starts the Release workflow. It checks that the tag is annotated, matches both package versions, and points to a commit on `origin/main`, then runs the same Node.js 22/24 CI matrix. After all checks pass, a separate job with `contents: write` creates a GitHub release with generated notes. GitHub provides source archives automatically; no build artifact or npm credentials are needed.
+Pushing `v*` starts the Release workflow. It checks that the tag is annotated, matches both package versions, and points to a commit on `origin/main`, then runs the same Node.js 22/24 CI matrix and installation smoke test. The smoke test additionally installs the tag through `paseo plugin add git:agaman/paseo-pins --ref <tag>`, verifies the installed commit matches the release checkout, and reloads it. After all checks pass, a separate job with `contents: write` creates a GitHub release with generated notes. GitHub provides source archives automatically; no build artifact or npm credentials are needed.
 
 If Actions fails, rerun the failed jobs from GitHub Actions. Repeating the local command will not retrigger an already-pushed tag. A workflow retry leaves an existing GitHub release unchanged, including any edited notes. Fix code failures in a new version rather than moving a published tag.
 

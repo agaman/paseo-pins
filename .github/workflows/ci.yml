@@ -6,6 +6,11 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      git-ref:
+        description: Also smoke-test this published Git ref before releasing
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -35,3 +40,35 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run check:distribution
+
+  install:
+    name: Clean install (Paseo 0.15.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Deliberately do not run npm ci in the plugin checkout.
+      - name: Install the minimum supported Paseo CLI separately
+        run: npm install --prefix "$RUNNER_TEMP/paseo-cli" --no-audit --no-fund @getpaseo/cli@0.15.4
+      - name: Install and reload committed plugin sources
+        env:
+          RELEASE_GIT_REF: ${{ inputs.git-ref }}
+        run: |
+          args=(--cli "$RUNNER_TEMP/paseo-cli/node_modules/.bin/paseo" --logs-dir "$RUNNER_TEMP/pins-smoke-logs")
+          if [[ -n "$RELEASE_GIT_REF" ]]; then
+            args+=(--git-ref "$RELEASE_GIT_REF")
+          fi
+          node tools/ci/smoke-install.js "${args[@]}"
+      - name: Preserve failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: install-smoke-logs
+          path: ${{ runner.temp }}/pins-smoke-logs
+          if-no-files-found: ignore
+          retention-days: 7
