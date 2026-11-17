@@ -46,8 +46,30 @@ Use supported Paseo plugin APIs only. Do not patch Paseo, its SDK, or installed 
 
 Agent-tool contracts live in [`shared/pins.ts`](shared/pins.ts), with usage guidance in [`server/guidance/pins.ts`](server/guidance/pins.ts) and [`server/guidance/selection.ts`](server/guidance/selection.ts).
 
-## Release preparation
+## Releases
 
-Before publishing, check the manifest's minimum Paseo version, package metadata, README, and current screenshots. The registry reviewer can prepare the listing overview from the README and verified behavior. Run `npm pack --dry-run --ignore-scripts` and verify every runtime import and declared asset is included. Test the exact release artifact on an isolated daemon rather than relying on a development checkout's dependencies or data.
+Releases use annotated Git tags and GitHub Releases. The package remains private; there is no npm publication. `package.json` is the version source, and `package-lock.json` must agree. Only stable versions such as `0.1.0` are supported.
 
-The package remains private until npm publication is explicitly prepared. Repository installation is available separately. Historical plans and validation notes remain in Git history.
+Before releasing, check the manifest's minimum Paseo version, metadata, README, and screenshots. Test a fresh Git installation of the intended commit on an isolated daemon. Community registry submission remains a separate manual step.
+
+1. For the first release, use the existing `0.1.0`. For later releases, run `npm version patch --no-git-tag-version` (or `minor` / `major`). This updates both package files without creating a tag.
+2. Review the changes, run `npm run check` and `npm run check:distribution`, then commit and push through the normal process. Wait for CI to pass on `main`.
+3. From a clean `main`, preview the release:
+
+   ```sh
+   npm run release -- --dry-run
+   ```
+
+4. Create and push the version tag:
+
+   ```sh
+   npm run release
+   ```
+
+The script requires local `main` to match the current `origin` main branch. The dry run reads the remote but makes no changes. Existing tags are never replaced. If a push fails, fix the connection or permission issue and rerun the command; it reuses a matching local annotated tag.
+
+Pushing `v*` starts the Release workflow. It checks that the tag is annotated, matches both package versions, and points to a commit on `origin/main`, then runs the same Node.js 22/24 CI matrix. After all checks pass, a separate job with `contents: write` creates a GitHub release with generated notes. GitHub provides source archives automatically; no build artifact or npm credentials are needed.
+
+If Actions fails, rerun the failed jobs from GitHub Actions. Repeating the local command will not retrigger an already-pushed tag. A workflow retry leaves an existing GitHub release unchanged, including any edited notes. Fix code failures in a new version rather than moving a published tag.
+
+Historical plans and validation notes remain in Git history.
