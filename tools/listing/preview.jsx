@@ -35,7 +35,7 @@ const theme = { colors };
 const host = { id: "listing-preview" };
 const layout = { compact, platform: "web" };
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-const menuSurface = compact ? colors.surface2 : colors.surface1;
+const menuSurface = compact ? colors.surface0 : colors.surface1;
 document.body.style.background = colors.surface0;
 
 createRoot(document.getElementById("app")).render(
@@ -146,7 +146,7 @@ function Conversation() {
 
 function MenuContent() {
   return (
-    <div style={{ padding: 12 }}>
+    <div style={{ padding: 12, paddingBottom: compact ? 20 : 12 }}>
       <PinsPopover
         workspaceId="sample"
         host={host}

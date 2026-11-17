@@ -45,12 +45,10 @@ export function PinsPopover({
   }
   const touch = useTouchControls();
   const native = layout.platform !== "web";
+  const bottomActions = layout.compact && !native;
   // Match the host surface for the unread dot cutout and opaque sticky toolbar.
-  const surface = layout.compact
-    ? native
-      ? theme.colors.surface0
-      : theme.colors.surface2
-    : theme.colors.surface1;
+  // Paseo's SheetBackground uses surface0 on both native and compact web.
+  const surface = layout.compact ? theme.colors.surface0 : theme.colors.surface1;
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -161,6 +159,142 @@ export function PinsPopover({
 
   const groups = groupPins(query.data?.pins ?? [], query.data?.sections ?? []);
 
+  const actions = (
+    <View
+      testID="pins-actions"
+      style={{
+        flexDirection: "row",
+        justifyContent: bottomActions ? "space-around" : "flex-end",
+        gap: 4,
+        // Extend the divider through the host inset, preserving action alignment.
+        marginHorizontal: -4,
+        paddingLeft: 4,
+        paddingRight: 8,
+        marginTop: layout.compact ? 0 : -2,
+        marginBottom: bottomActions ? 0 : 4,
+        paddingBottom: bottomActions ? 0 : 4,
+        borderBottomWidth: bottomActions ? 0 : 1,
+        borderTopWidth: bottomActions ? 1 : 0,
+        borderTopColor: theme.colors.border,
+        backgroundColor: surface,
+        borderBottomColor: theme.colors.border,
+        zIndex: groups.length + 2,
+        // Web CSS sticks within the host's scroll area without introducing a second scroller.
+        // Native sheets own their ScrollView and expose no sticky-header registration.
+        ...(!native && !bottomActions
+          ? {
+              position: "sticky" as ViewStyle["position"],
+              // Match the resting inset: desktop host padding (4px) minus our 2px top trim.
+              top: layout.compact ? 0 : 2,
+              backgroundColor: surface,
+            }
+          : {}),
+      }}
+    >
+      {!native && !bottomActions && (
+        <View
+          pointerEvents="none"
+          accessible={false}
+          style={{
+            // Cover the host's top inset as rows pass behind the sticky toolbar.
+            position: "absolute",
+            top: -16,
+            height: 16,
+            left: 0,
+            right: 0,
+            backgroundColor: surface,
+          }}
+        />
+      )}
+      {!empty && (
+        <>
+          <MenuAction
+            icon={refreshIcon}
+            label={refreshLabel}
+            tooltip={refreshLabel}
+            placement={bottomActions ? "above" : "below"}
+            tooltipAlign={bottomActions ? "left" : "right"}
+            theme={theme}
+            touch={touch}
+            disabled={refreshDisabled}
+            busy={refresh.busy || refreshing}
+            onPress={refreshPins}
+          />
+          <MenuAction
+            icon="ListChecks"
+            label="Mark all pins as read"
+            tooltip="Mark as read"
+            placement={bottomActions ? "above" : "below"}
+            theme={theme}
+            touch={touch}
+            disabled={busy || unreadEntries.length === 0}
+            busy={busy}
+            onPress={() => {
+              void read(unreadEntries);
+            }}
+          />
+        </>
+      )}
+      <MenuAction
+        icon="Settings"
+        label="Pins settings"
+        tooltip="Pins settings"
+        placement={bottomActions ? "above" : "below"}
+        theme={theme}
+        touch={touch}
+        disabled={false}
+        busy={false}
+        onPress={openSettings}
+      />
+    </View>
+  );
+
+  const removalNotice = removal && (
+    <View
+      testID="pin-removal-notice"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 6,
+        marginHorizontal: -4,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        backgroundColor: surface,
+        zIndex: groups.length + 1,
+        ...(!native && !bottomActions
+          ? { position: "sticky" as ViewStyle["position"], bottom: 0 }
+          : {}),
+      }}
+    >
+      <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+        <Text style={foreground} numberOfLines={2}>
+          {removal.title}
+        </Text>
+        <Text style={muted}>Removed from Pins</Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Undo removal of ${removal.title}`}
+        disabled={busy}
+        accessibilityState={{ disabled: busy }}
+        onPress={() => {
+          void undo();
+        }}
+        style={({ pressed }) => ({
+          minHeight: touch ? 44 : 28,
+          justifyContent: "center",
+          paddingHorizontal: 4,
+          opacity: busy ? 0.4 : pressed ? 0.7 : 1,
+        })}
+      >
+        <Text style={{ ...foreground, color: theme.colors.accent, fontWeight: "600" }}>Undo</Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <RepoSourceLayer
       theme={theme}
@@ -178,86 +312,7 @@ export function PinsPopover({
           marginVertical: -12,
         }}
       >
-        <View
-          testID="pins-actions"
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            gap: 4,
-            // Extend the divider through the host inset, preserving action alignment.
-            marginHorizontal: -4,
-            paddingLeft: 4,
-            paddingRight: 8,
-            marginTop: layout.compact ? 0 : -2,
-            marginBottom: 4,
-            paddingBottom: 4,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            zIndex: groups.length + 2,
-            // Web CSS sticks within the host's scroll area without introducing a second scroller.
-            // Native sheets own their ScrollView and expose no sticky-header registration.
-            ...(!native
-              ? {
-                  position: "sticky" as ViewStyle["position"],
-                  // Match the resting inset: desktop host padding (4px) minus our 2px top trim.
-                  top: layout.compact ? 0 : 2,
-                  backgroundColor: surface,
-                }
-              : {}),
-          }}
-        >
-          {!native && (
-            <View
-              pointerEvents="none"
-              accessible={false}
-              style={{
-                // Cover the host's top inset as rows pass behind the sticky toolbar.
-                position: "absolute",
-                top: -16,
-                height: 16,
-                left: 0,
-                right: 0,
-                backgroundColor: surface,
-              }}
-            />
-          )}
-          {!empty && (
-            <>
-              <MenuAction
-                icon={refreshIcon}
-                label={refreshLabel}
-                tooltip={refreshLabel}
-                theme={theme}
-                touch={touch}
-                disabled={refreshDisabled}
-                busy={refresh.busy || refreshing}
-                onPress={refreshPins}
-              />
-              <MenuAction
-                icon="ListChecks"
-                label="Mark all pins as read"
-                tooltip="Mark as read"
-                theme={theme}
-                touch={touch}
-                disabled={busy || unreadEntries.length === 0}
-                busy={busy}
-                onPress={() => {
-                  void read(unreadEntries);
-                }}
-              />
-            </>
-          )}
-          <MenuAction
-            icon="Settings"
-            label="Pins settings"
-            tooltip="Pins settings"
-            theme={theme}
-            touch={touch}
-            disabled={false}
-            busy={false}
-            onPress={openSettings}
-          />
-        </View>
+        {!bottomActions && actions}
         {query.data?.config?.error && (
           <View style={{ padding: 8, gap: 5 }}>
             <Text accessibilityRole="alert" style={muted}>
@@ -403,50 +458,24 @@ export function PinsPopover({
             ))}
           </View>
         ))}
-        {removal && (
+        {bottomActions ? (
           <View
-            testID="pin-removal-notice"
+            testID="pins-footer"
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 6,
-              marginHorizontal: -4,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderTopWidth: 1,
-              borderTopColor: theme.colors.border,
+              position: "sticky" as ViewStyle["position"],
+              // Match the host page inset and sheet safe-area padding.
+              bottom: "calc(8px + env(safe-area-inset-bottom, 0px))" as ViewStyle["bottom"],
+              // Paint the inset without an absolute child extending the scroll range.
+              boxShadow: `0 calc(8px + env(safe-area-inset-bottom, 0px)) 0 0 ${surface}`,
               backgroundColor: surface,
-              zIndex: groups.length + 1,
-              ...(!native ? { position: "sticky" as ViewStyle["position"], bottom: 0 } : {}),
+              zIndex: groups.length + 2,
             }}
           >
-            <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
-              <Text style={foreground} numberOfLines={2}>
-                {removal.title}
-              </Text>
-              <Text style={muted}>Removed from Pins</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Undo removal of ${removal.title}`}
-              disabled={busy}
-              accessibilityState={{ disabled: busy }}
-              onPress={() => {
-                void undo();
-              }}
-              style={({ pressed }) => ({
-                minHeight: touch ? 44 : 28,
-                justifyContent: "center",
-                paddingHorizontal: 4,
-                opacity: busy ? 0.4 : pressed ? 0.7 : 1,
-              })}
-            >
-              <Text style={{ ...foreground, color: theme.colors.accent, fontWeight: "600" }}>
-                Undo
-              </Text>
-            </Pressable>
+            {removalNotice}
+            {actions}
           </View>
+        ) : (
+          removalNotice
         )}
       </View>
     </RepoSourceLayer>

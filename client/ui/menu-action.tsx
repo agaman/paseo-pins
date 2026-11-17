@@ -19,6 +19,8 @@ export function MenuAction({
   busy,
   expanded,
   showLabel = false,
+  placement = "below",
+  tooltipAlign = "right",
   onPress,
 }: {
   icon: string;
@@ -30,6 +32,8 @@ export function MenuAction({
   busy: boolean;
   expanded?: boolean;
   showLabel?: boolean;
+  placement?: "above" | "below";
+  tooltipAlign?: "left" | "right";
   onPress(): void;
 }) {
   const tip = useActionTooltip(touch, disabled);
@@ -84,8 +88,8 @@ export function MenuAction({
           pointerEvents="none"
           style={{
             position: "absolute",
-            top: size + 4,
-            right: 0,
+            ...(placement === "above" ? { bottom: size + 4 } : { top: size + 4 }),
+            ...(tooltipAlign === "left" ? { left: 0 } : { right: 0 }),
             ...actionTooltipContentStyle,
             ...tooltipSurfaceStyle(theme),
           }}
