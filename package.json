@@ -1,7 +1,7 @@
 {
   "name": "paseo-pins",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Useful workspace resources, kept current by your agents.",
   "license": "MIT",
   "author": "Alex Gaman",
@@ -22,6 +22,7 @@
   "files": [
     "LICENSE",
     "paseo-plugin.json",
+    "OVERVIEW.md",
     "assets/*.png",
     "docs/help.md",
     "docs/configuration.md",

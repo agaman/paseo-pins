@@ -50,7 +50,7 @@ Agent-tool contracts live in [`shared/pins.ts`](shared/pins.ts), with usage guid
 
 Releases use annotated Git tags and GitHub Releases. The package remains private; there is no npm publication. `package.json` is the version source, and `package-lock.json` must agree. Only stable versions such as `0.1.0` are supported.
 
-Before releasing, check the manifest's minimum Paseo version, metadata, README, and screenshots. Test a fresh Git installation of the intended commit on an isolated daemon. Community registry submission remains a separate manual step.
+Before releasing, check the manifest's minimum Paseo version, metadata, README, OVERVIEW, and screenshots. `OVERVIEW.md` supplies the registry listing page: keep its setup, data access, and limitations current, without install commands. Test a fresh Git installation of the intended commit on an isolated daemon. Community registry submission remains a separate manual step; the listing uses the overview from the approved revision, not automatically from the newest GitHub release.
 
 1. If the current version already has a tag (including a failed release), run `npm version patch --no-git-tag-version` (or `minor` / `major`). Otherwise use the current version. The version command updates both package files without creating a tag.
 2. Review the changes, run `npm run check` and `npm run check:distribution`, then commit and push through the normal process. Wait for CI to pass on `main`.
