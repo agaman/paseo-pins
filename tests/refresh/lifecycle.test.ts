@@ -257,6 +257,49 @@ test("permission fallback denies the actual request ID after revoking writes", a
   assert.equal((await f.store.document("a")).refresh?.outcome, "permission_limited");
 });
 
+test("reload leaves an in-flight permission for the new coordinator to resolve", async (t) => {
+  const f = await fixture(t),
+    first = f.coordinator();
+  await first.start("a", randomUUID(), f.paseo);
+  await until(async () => (await f.store.document("a")).refresh?.state === "running");
+  assert.ok(f.state.worker);
+  const request: RefreshPermission = {
+    id: "permission-request",
+    provider: "codex",
+    name: "shell",
+    kind: "tool",
+  };
+  f.state.worker.pendingPermissions = [request];
+
+  let markReading = () => {};
+  const reading = new Promise<void>((resolve) => {
+    markReading = resolve;
+  });
+  let resumeRead = () => {};
+  const resume = new Promise<void>((resolve) => {
+    resumeRead = resolve;
+  });
+  const document = f.store.document.bind(f.store);
+  const pausedRead = t.mock.method(f.store, "document", async (workspaceId: string) => {
+    markReading();
+    await resume;
+    return document(workspaceId);
+  });
+  const resolving = first.permission("a", f.state.worker.id, request, f.paseo);
+  await reading;
+  await first.close();
+  pausedRead.mock.restore();
+  resumeRead();
+  await resolving;
+  assert.deepEqual(f.state.deny, []);
+  assert.equal((await f.store.document("a")).refresh?.outcome, null);
+
+  f.coordinator().connect(f.paseo);
+  await until(async () => (await f.store.document("a")).refresh?.state === "finished");
+  assert.deepEqual(f.state.deny, [request.id]);
+  assert.equal((await f.store.document("a")).refresh?.outcome, "permission_limited");
+});
+
 test("expired persisted run times out on reconnect and cannot reset its deadline", async (t) => {
   const f = await fixture(t),
     first = f.coordinator();

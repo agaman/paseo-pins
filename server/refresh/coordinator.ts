@@ -197,8 +197,10 @@ export class RefreshCoordinator {
     request: RefreshPermission,
     paseo: Paseo,
   ) {
+    if (this.closed) return;
     const run = (await this.store.document(workspaceId)).refresh;
-    if (!run || run.agentId !== agentId) return;
+    // Reload does not wait for in-flight reads. Leave the request for the new owner.
+    if (this.closed || !run || run.agentId !== agentId) return;
     if (
       isRefreshToolPermission(request) &&
       !run.outcome &&
@@ -216,6 +218,7 @@ export class RefreshCoordinator {
       "permission_limited",
       "Inspection required permission. Unverified resources were retained.",
     );
+    if (this.closed) return;
     await paseo.agents
       .ref(agentId)
       .respondToPermission({

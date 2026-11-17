@@ -52,7 +52,7 @@ Releases use annotated Git tags and GitHub Releases. The package remains private
 
 Before releasing, check the manifest's minimum Paseo version, metadata, README, and screenshots. Test a fresh Git installation of the intended commit on an isolated daemon. Community registry submission remains a separate manual step.
 
-1. For the first release, use the existing `0.1.0`. For later releases, run `npm version patch --no-git-tag-version` (or `minor` / `major`). This updates both package files without creating a tag.
+1. If the current version already has a tag (including a failed release), run `npm version patch --no-git-tag-version` (or `minor` / `major`). Otherwise use the current version. The version command updates both package files without creating a tag.
 2. Review the changes, run `npm run check` and `npm run check:distribution`, then commit and push through the normal process. Wait for CI to pass on `main`.
 3. From a clean `main`, preview the release:
 
