@@ -191,6 +191,7 @@ test("versions 1–3 migrate lazily without losing history, identity, attention 
     delete legacy.sections;
     delete legacy.refresh;
     delete legacy.repo;
+    delete legacy.removals;
     for (const pin of legacy.pins) {
       delete pin.section;
       delete pin.kept;
@@ -211,7 +212,7 @@ test("versions 1–3 migrate lazily without losing history, identity, attention 
     assert.equal(await readFile(file, "utf8"), text);
     await store.apply("a", { sections: { upsert: [review] } });
     const migrated = JSON.parse(await readFile(file, "utf8"));
-    assert.equal(migrated.version, 7);
+    assert.equal(migrated.version, 8);
     assert.deepEqual(migrated.pins, snapshot.pins);
     assert.deepEqual(migrated.summaries, legacy.summaries ?? []);
     if (version > 1) assert.deepEqual(migrated.pins[0].attention, current.pins[0].attention);

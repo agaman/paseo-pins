@@ -19,6 +19,7 @@ const colors = dark
       foreground: "#fafafa",
       foregroundMuted: "#a1a1aa",
       accent: "#4ade80",
+      statusDanger: "#f18a8a",
     }
   : {
       surface0: "#ffffff",
@@ -28,6 +29,7 @@ const colors = dark
       foreground: "#1a1a1e",
       foregroundMuted: "#71717a",
       accent: "#207a50",
+      statusDanger: "#c93636",
     };
 const theme = { colors };
 const host = { id: "listing-preview" };

@@ -67,7 +67,38 @@ const entries = pins
     attentionToken: p.attention?.token ?? null,
     reason: p.attention?.reason ?? null,
   }));
+const removals = new Map();
 const handlers = {
+  "pins.keep": async ({ key, instanceId, kept }) => {
+    const pin = pins.find((p) => p.key === key && p.instanceId === instanceId);
+    if (!pin || pin.source === "repo") throw Error("Pin cannot be changed.");
+    pin.kept = kept;
+    return snapshot();
+  },
+  "pins.remove-user": async ({ key, instanceId, requestId }) => {
+    let receipt = removals.get(requestId);
+    if (!receipt) {
+      const index = pins.findIndex((p) => p.key === key && p.instanceId === instanceId);
+      if (index < 0 || pins[index].source === "repo") throw Error("Pin cannot be removed.");
+      receipt = { pin: structuredClone(pins[index]), index, restored: false };
+      removals.set(requestId, receipt);
+      pins.splice(index, 1);
+    }
+    return {
+      ...snapshot(),
+      removal: receipt.restored ? null : { id: requestId, title: receipt.pin.title },
+    };
+  },
+  "pins.undo-removal": async ({ removalId }) => {
+    const receipt = removals.get(removalId);
+    if (!receipt) throw Error("Undo is no longer available.");
+    if (!receipt.restored) {
+      if (pins.some((p) => p.key === receipt.pin.key)) throw Error("Pin key is already in use.");
+      pins.splice(receipt.index, 0, { ...receipt.pin, instanceId: crypto.randomUUID() });
+      receipt.restored = true;
+    }
+    return snapshot();
+  },
   "pins.list": async () => snapshot(),
   "pins.refresh.status": async () => ({ run: null, configured: true, presentation: null }),
   "pins.summary.read": async ({ offset, limit }) => ({

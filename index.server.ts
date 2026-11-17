@@ -5,10 +5,11 @@ import { RefreshCoordinator } from "./server/refresh/coordinator";
 import { refreshGuidance } from "./server/refresh/guidance";
 import { RefreshResults } from "./server/refresh/results";
 import { createRefreshTools } from "./server/refresh/tools";
+import { removeUserPin, undoUserRemoval } from "./server/removals";
 import { dataDirectory, PinStore } from "./server/store";
 import { PinTurns } from "./server/summaries/turns";
 import { createPinTools } from "./server/tools";
-import { acknowledgePins, listPins, setPinKept } from "./shared/pin-rpc";
+import { acknowledgePins, listPins, removePin, setPinKept, undoPinRemoval } from "./shared/pin-rpc";
 import {
   acknowledgeRefreshResult,
   cancelRefresh,
@@ -76,6 +77,14 @@ export default function contribute(server: PluginServerContext) {
   server.handle(setPinKept, ({ workspaceId, key, instanceId, kept }, { paseo }) => {
     connect(paseo);
     return store.setKept(workspaceId, key, instanceId, kept);
+  });
+  server.handle(removePin, ({ workspaceId, key, instanceId, requestId }, { paseo }) => {
+    connect(paseo);
+    return removeUserPin(store, workspaceId, key, instanceId, requestId);
+  });
+  server.handle(undoPinRemoval, ({ workspaceId, removalId }, { paseo }) => {
+    connect(paseo);
+    return undoUserRemoval(store, workspaceId, removalId);
   });
   server.handle(acknowledgePins, ({ workspaceId, entries }, { paseo }) => {
     connect(paseo);

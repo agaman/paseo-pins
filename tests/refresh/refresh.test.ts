@@ -15,6 +15,7 @@ import {
   scopedSnapshot,
   sectionRevision,
 } from "../../server/refresh/mutations";
+import { removeUserPin, undoUserRemoval } from "../../server/removals";
 import { PinStore } from "../../server/store";
 import { pinDocumentSchema } from "../../shared/pin-document";
 import { isUnread } from "../../shared/pins";
@@ -77,6 +78,40 @@ const apply = (store: PinStore, input: unknown) =>
   applyRefresh(store, "a", worker, refreshApplySchema.parse(input), turn);
 const revision = async (store: PinStore) => pinRevision((await store.list("a"))[0]);
 
+test("an in-flight refresh cannot rediscover a user-removed pin or edit its Undo replacement", async (t) => {
+  const store = await fixture(t);
+  const original = (await store.list("a"))[0];
+  const removalId = randomUUID();
+  await removeUserPin(store, "a", original.key, original.instanceId, removalId);
+  await assert.rejects(
+    apply(store, {
+      operationId: randomUUID(),
+      upsert: [
+        { ...pin, expectedRevision: null, reason: "Found in recent work", sources: ["source"] },
+      ],
+    }),
+    /already exists|removed|changed/,
+  );
+  assert.equal((await store.list("a")).length, 0);
+  await undoUserRemoval(store, "a", removalId);
+  const restored = (await store.list("a"))[0];
+  await assert.rejects(
+    apply(store, {
+      operationId: randomUUID(),
+      upsert: [
+        {
+          ...pin,
+          title: "Stale worker",
+          expectedRevision: pinRevision(restored),
+          reason: "Update",
+        },
+      ],
+    }),
+    /outside this refresh/,
+  );
+  assert.deepEqual((await store.list("a"))[0], restored);
+});
+
 test("file inspection derives the workspace root and requires its active worker", async (t) => {
   const store = await fixture(t);
   const root = await mkdtemp(path.join(tmpdir(), "pins-scoped-files-"));
@@ -125,7 +160,7 @@ test("file inspection derives the workspace root and requires its active worker"
 test("v4 migration preserves pins/history and adds no refresh run", async (t) => {
   const store = await fixture(t);
   const doc = await store.document("a");
-  const { refresh: _refresh, repo: _repo, ...old } = doc;
+  const { refresh: _refresh, repo: _repo, removals: _removals, ...old } = doc;
   const oldPins = old.pins.map(({ kept: _kept, source: _source, ...pin }) => pin);
   await writeFile(
     store.filePath("a"),
@@ -137,7 +172,7 @@ test("v4 migration preserves pins/history and adds no refresh run", async (t) =>
     }),
   );
   const loaded = await store.document("a");
-  assert.equal(loaded.version, 7);
+  assert.equal(loaded.version, 8);
   assert.equal(loaded.refresh, null);
   assert.deepEqual(loaded.pins, doc.pins);
   assert.throws(() => pinDocumentSchema.parse({ ...old, version: 6 }));

@@ -81,3 +81,24 @@ export const setPinKept = defineRpc({
     .strict(),
   output: snapshotSchema,
 });
+
+export const removePin = defineRpc({
+  name: "pins.remove-user",
+  input: z
+    .object({
+      workspaceId: workspaceIdSchema,
+      key: pinKeySchema,
+      instanceId: pinInstanceIdSchema,
+      requestId: z.uuid(),
+    })
+    .strict(),
+  output: snapshotSchema.extend({
+    removal: z.object({ id: z.uuid(), title: z.string() }).nullable(),
+  }),
+});
+
+export const undoPinRemoval = defineRpc({
+  name: "pins.undo-removal",
+  input: z.object({ workspaceId: workspaceIdSchema, removalId: z.uuid() }).strict(),
+  output: snapshotSchema,
+});

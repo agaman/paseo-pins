@@ -20,6 +20,12 @@ Open a link, press the checkmark beside its message, or use the toolbar's **Mark
 
 The outline pin beside an item enables **Keep**; a filled pin means protected from agent removal. Keeping does not prevent changes to the title or destination. Items labeled **Repo** are owned by [repository configuration](configuration.md) instead.
 
+## Remove a pin
+
+Press the trash button beside Keep to remove a pin from the workspace list. This does not delete the linked resource or stop a server. You can remove a kept pin yourself; Keep protects it from agents.
+
+The notice at the bottom offers **Undo** until you close the menu. A later removal replaces that notice. Undo restores the saved pin and its Keep/read state; it will not overwrite a newer pin using the same key. Repository pins have no trash button: ask your agent to update `.paseo/pins.json`.
+
 ## Troubleshooting
 
 | Problem | What to check |

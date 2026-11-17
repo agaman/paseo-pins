@@ -14,6 +14,7 @@ export function PinAction({
   label,
   tooltip,
   selected,
+  destructive = false,
   visible = true,
   theme,
   touch,
@@ -25,6 +26,7 @@ export function PinAction({
   label: string;
   tooltip: string;
   selected?: boolean;
+  destructive?: boolean;
   visible?: boolean;
   theme: PluginButtonContentProps["theme"];
   touch: boolean;
@@ -81,7 +83,13 @@ export function PinAction({
         <Icon
           icon={icon}
           size={14}
-          color={selected ? theme.colors.foreground : theme.colors.foregroundMuted}
+          color={
+            destructive && active
+              ? theme.colors.statusDanger
+              : selected
+                ? theme.colors.foreground
+                : theme.colors.foregroundMuted
+          }
         />
       </Pressable>
       {tip.showTooltip && (

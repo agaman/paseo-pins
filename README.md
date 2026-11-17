@@ -18,6 +18,7 @@
 - **Updates with context:** Pins get updated with a short message and a notification dot when there are meaningful changes.
 - **Updates in chat:** Updates to pins appear in the chat log after agent turns.
 - **Keep what matters:** Protect individual pins from agent removal and organize related resources into sections.
+- **Remove with Undo:** Remove a pin yourself, even when kept, and undo while the menu stays open.
 - **Shared with your project:** Define repository-owned links in [`.paseo/pins.json`](docs/configuration.md).
 - **Across devices:** Workspace pins and read state follow you across connected devices.
 

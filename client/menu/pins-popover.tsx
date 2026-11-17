@@ -6,6 +6,7 @@ import { isUnread, type Pin } from "../../shared/pins";
 import { groupPins } from "../../shared/sections";
 import { RefreshResult } from "../refresh/result";
 import { useRefresh } from "../refresh/use-refresh";
+import { requestId } from "../request-id";
 import { MenuAction } from "../ui/menu-action";
 import { usePins } from "../use-pins";
 import { useTouchControls } from "../web";
@@ -22,7 +23,7 @@ export function PinsPopover({
   close,
   openSettings,
 }: PluginButtonContentProps & { openSettings: () => void }) {
-  const { query, markRead, setKept } = usePins(host.id, workspaceId);
+  const { query, markRead, setKept, removeUserPin, undoRemoval } = usePins(host.id, workspaceId);
   const refresh = useRefresh(host.id, workspaceId);
   const run = refresh.query.data?.run;
   const refreshing = Boolean(run && (!run.outcome || run.cleanupPending));
@@ -54,6 +55,9 @@ export function PinsPopover({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [failed, setFailed] = useState<FailedAcknowledgment | null>(null);
+  const [removal, setRemoval] = useState<{ id: string; title: string } | null>(null);
+  const [failedRemoval, setFailedRemoval] = useState<{ pin: Pin; requestId: string } | null>(null);
+  const [failedUndo, setFailedUndo] = useState(false);
   const foreground = { color: theme.colors.foreground, fontSize: native ? 14 : 13, lineHeight: 18 };
   const muted = { ...foreground, color: theme.colors.foregroundMuted };
   const error =
@@ -70,6 +74,8 @@ export function PinsPopover({
     setBusy(true);
     setActionError(null);
     setFailed(null);
+    setFailedRemoval(null);
+    setFailedUndo(false);
     return true;
   }
   function finish() {
@@ -115,6 +121,35 @@ export function PinsPopover({
       await setKept(pin.key, pin.instanceId, !pin.kept);
     } catch {
       setActionError("Couldn't change Keep. Refresh the list and try again.");
+      void query.refetch();
+    } finally {
+      finish();
+    }
+  }
+  async function remove(pin: Pin, id = requestId()) {
+    if (!start()) return;
+    try {
+      setRemoval(await removeUserPin(pin.key, pin.instanceId, id));
+    } catch (error) {
+      setFailedRemoval({ pin, requestId: id });
+      setActionError(
+        error instanceof Error ? error.message : "Couldn't remove this pin. Please try again.",
+      );
+      void query.refetch();
+    } finally {
+      finish();
+    }
+  }
+  async function undo() {
+    if (!removal || !start()) return;
+    try {
+      await undoRemoval(removal.id);
+      setRemoval(null);
+    } catch (error) {
+      setFailedUndo(true);
+      setActionError(
+        error instanceof Error ? error.message : "Couldn't undo removal. Please try again.",
+      );
       void query.refetch();
     } finally {
       finish();
@@ -273,13 +308,15 @@ export function PinsPopover({
             <Text accessibilityRole="alert" style={foreground}>
               {error}
             </Text>
-            {(failed || query.isError) && (
+            {(failed || failedRemoval || failedUndo || query.isError) && (
               <Pressable
                 accessibilityRole="button"
                 disabled={busy}
                 accessibilityState={{ disabled: busy }}
                 onPress={() => {
-                  if (failed) void read(failed.entries, failed.opened);
+                  if (failedRemoval) void remove(failedRemoval.pin, failedRemoval.requestId);
+                  else if (failedUndo) void undo();
+                  else if (failed) void read(failed.entries, failed.opened);
                   else void query.refetch();
                 }}
                 style={{ paddingVertical: 8 }}
@@ -355,6 +392,9 @@ export function PinsPopover({
                 onKeep={() => {
                   void toggleKeep(pin);
                 }}
+                onRemove={() => {
+                  void remove(pin);
+                }}
                 onRead={() => {
                   if (pin.attention)
                     void read([{ key: pin.key, attentionToken: pin.attention.token }]);
@@ -363,6 +403,51 @@ export function PinsPopover({
             ))}
           </View>
         ))}
+        {removal && (
+          <View
+            testID="pin-removal-notice"
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 6,
+              marginHorizontal: -4,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderTopWidth: 1,
+              borderTopColor: theme.colors.border,
+              backgroundColor: surface,
+              zIndex: groups.length + 1,
+              ...(!native ? { position: "sticky" as ViewStyle["position"], bottom: 0 } : {}),
+            }}
+          >
+            <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+              <Text style={foreground} numberOfLines={2}>
+                {removal.title}
+              </Text>
+              <Text style={muted}>Removed from Pins</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Undo removal of ${removal.title}`}
+              disabled={busy}
+              accessibilityState={{ disabled: busy }}
+              onPress={() => {
+                void undo();
+              }}
+              style={({ pressed }) => ({
+                minHeight: touch ? 44 : 28,
+                justifyContent: "center",
+                paddingHorizontal: 4,
+                opacity: busy ? 0.4 : pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ ...foreground, color: theme.colors.accent, fontWeight: "600" }}>
+                Undo
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </RepoSourceLayer>
   );

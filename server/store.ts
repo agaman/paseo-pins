@@ -17,6 +17,7 @@ import {
 } from "../shared/pins";
 import { emptyRepoState } from "../shared/repo-state";
 import { summaryEntryUnread, type TurnSummary } from "../shared/summaries";
+import { invalidateRemovalReceipts } from "./removals";
 import { type RepoRead, readRepoConfig, reconcileRepo, requireConfigReady } from "./repo-config";
 import { applySections } from "./sections";
 import { recordChanges, type TurnIdentity } from "./summaries/records";
@@ -111,7 +112,8 @@ export class PinStore {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
         return {
-          version: 7,
+          version: 8,
+          removals: [],
           workspaceId,
           pins: [],
           sections: [],
@@ -507,6 +509,7 @@ export class PinStore {
   private async save(input: PinDocument, signal?: AbortSignal): Promise<void> {
     const file = this.filePath(input.workspaceId);
     const temporary = `${file}.${randomUUID()}.tmp`;
+    invalidateRemovalReceipts(input);
     const document = pinDocumentSchema.parse(input);
     try {
       await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });

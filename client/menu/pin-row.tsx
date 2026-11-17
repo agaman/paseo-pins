@@ -24,6 +24,7 @@ export function PinRow({
   onOpen,
   onRead,
   onKeep,
+  onRemove,
 }: {
   pin: Pin;
   theme: PluginButtonContentProps["theme"];
@@ -35,12 +36,13 @@ export function PinRow({
   onOpen(): void;
   onRead(): void;
   onKeep(): void;
+  onRemove(): void;
 }) {
   const [activeTargets, setActiveTargets] = useState<Record<string, boolean>>({});
   const unread = isUnread(pin);
   const message = unread ? (pin.attention?.reason ?? "Unread update") : undefined;
   const active = Object.values(activeTargets).some(Boolean);
-  const highlighted = active && !activeTargets.ack && !activeTargets.keep;
+  const highlighted = active && !activeTargets.ack && !activeTargets.keep && !activeTargets.remove;
   function activate(target: string, value: boolean) {
     setActiveTargets((current) => ({ ...current, [target]: value }));
   }
@@ -192,16 +194,26 @@ export function PinRow({
         {/* Keep the 44px repository touch target out of the subtitle's line height. */}
         {configured && touch && <RepoSource title={pin.title} theme={theme} touch />}
         {!configured && (
-          <PinAction
-            {...actionProps}
-            icon={pin.kept ? filledPin : outlinePin}
-            selected={pin.kept}
-            visible={touch || active || pin.kept}
-            label={`${pin.kept ? "Allow removal of" : "Keep"} ${pin.title}`}
-            tooltip={pin.kept ? "Allow removal" : "Keep this pin"}
-            onActive={(value) => activate("keep", value)}
-            onPress={onKeep}
-          />
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 2 }}>
+            <PinAction
+              {...actionProps}
+              icon={pin.kept ? filledPin : outlinePin}
+              selected={pin.kept}
+              label={`${pin.kept ? "Allow removal of" : "Keep"} ${pin.title}`}
+              tooltip={pin.kept ? "Allow agent removal" : "Keep this pin"}
+              onActive={(value) => activate("keep", value)}
+              onPress={onKeep}
+            />
+            <PinAction
+              {...actionProps}
+              icon="Trash2"
+              label={`Remove ${pin.title}`}
+              tooltip="Remove pin"
+              destructive
+              onActive={(value) => activate("remove", value)}
+              onPress={onRemove}
+            />
+          </View>
         )}
       </View>
       {message && (

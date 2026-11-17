@@ -1,9 +1,12 @@
 import { z } from "zod";
+import { pinRemovalSchema } from "./pin-removal";
 import {
   currentPinSchema,
   keptPinSchema,
   ownedPinSchema,
   ownedSectionSchema,
+  type Pin,
+  type PinSection,
   pinSchema,
   pinSectionSchema,
   resourceSchema,
@@ -178,6 +181,27 @@ const v6CompatibleSchema = z.union([
     )
     .pipe(v6DocumentSchema),
 ]);
+function hasValidSections(document: { pins: Pin[]; sections: PinSection[] }) {
+  return document.pins.every(
+    (pin) =>
+      pin.section === null ||
+      document.sections.some(
+        (section) =>
+          section.key === pin.section && (pin.source !== "repo" || section.source === "repo"),
+      ),
+  );
+}
+function hasRepoMetadata(document: {
+  pins: Pin[];
+  sections: PinSection[];
+  repo: { digest: string | null };
+}) {
+  return (
+    document.repo.digest !== null ||
+    (!document.pins.some((pin) => pin.source === "repo") &&
+      !document.sections.some((section) => section.source === "repo"))
+  );
+}
 const v7DocumentSchema = z
   .object({
     ...v6DocumentSchema.shape,
@@ -199,26 +223,9 @@ const v7DocumentSchema = z
     repo: repoStateSchema,
   })
   .strict()
-  .refine(
-    (document) =>
-      document.pins.every(
-        (pin) =>
-          pin.section === null ||
-          document.sections.some(
-            (section) =>
-              section.key === pin.section && (pin.source !== "repo" || section.source === "repo"),
-          ),
-      ),
-    "Unknown or non-configured section in stored pins.",
-  )
-  .refine(
-    (document) =>
-      document.repo.digest !== null ||
-      (!document.pins.some((pin) => pin.source === "repo") &&
-        !document.sections.some((section) => section.source === "repo")),
-    "Configured resources require configuration metadata.",
-  );
-export const pinDocumentSchema = z.union([
+  .refine(hasValidSections, "Unknown or non-configured section in stored pins.")
+  .refine(hasRepoMetadata, "Configured resources require configuration metadata.");
+const v7CompatibleSchema = z.union([
   v7DocumentSchema,
   v6CompatibleSchema
     .transform(
@@ -231,5 +238,28 @@ export const pinDocumentSchema = z.union([
       }),
     )
     .pipe(v7DocumentSchema),
+]);
+const v8DocumentSchema = z
+  .object({
+    ...v7DocumentSchema.shape,
+    version: z.literal(8),
+    removals: z
+      .array(pinRemovalSchema)
+      .max(100)
+      .refine(
+        (entries) => new Set(entries.map((entry) => entry.id)).size === entries.length,
+        "Duplicate removal identity.",
+      ),
+  })
+  .strict()
+  .refine(hasValidSections, "Unknown or non-configured section in stored pins.")
+  .refine(hasRepoMetadata, "Configured resources require configuration metadata.");
+export const pinDocumentSchema = z.union([
+  v8DocumentSchema,
+  v7CompatibleSchema
+    .transform(
+      (document): z.input<typeof v8DocumentSchema> => ({ ...document, version: 8, removals: [] }),
+    )
+    .pipe(v8DocumentSchema),
 ]);
 export type PinDocument = z.infer<typeof pinDocumentSchema>;

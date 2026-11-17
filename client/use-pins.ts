@@ -4,13 +4,17 @@ import {
   type AcknowledgmentEntries,
   acknowledgePins,
   listPins,
+  removePin,
   setPinKept,
+  undoPinRemoval,
 } from "../shared/pin-rpc";
 
 export function usePins(hostId: string, workspaceId: string) {
   const list = useRpc(listPins);
   const acknowledge = useRpc(acknowledgePins);
   const keep = useRpc(setPinKept);
+  const remove = useRpc(removePin);
+  const undo = useRpc(undoPinRemoval);
   const cache = useQueryClient();
   const queryKey = ["pins", hostId, workspaceId];
   const query = useQuery({
@@ -48,5 +52,23 @@ export function usePins(hostId: string, workspaceId: string) {
     void cache.invalidateQueries({ queryKey });
   }
 
-  return { query, markRead, setKept };
+  async function removeUserPin(key: string, instanceId: string, requestId: string) {
+    await cache.cancelQueries({ queryKey });
+    const result = await remove({ workspaceId, key, instanceId, requestId });
+    await cache.cancelQueries({ queryKey });
+    const { removal, ...snapshot } = result;
+    cache.setQueryData(queryKey, snapshot);
+    void cache.invalidateQueries({ queryKey });
+    return removal;
+  }
+
+  async function undoRemoval(removalId: string) {
+    await cache.cancelQueries({ queryKey });
+    const result = await undo({ workspaceId, removalId });
+    await cache.cancelQueries({ queryKey });
+    cache.setQueryData(queryKey, result);
+    void cache.invalidateQueries({ queryKey });
+  }
+
+  return { query, markRead, setKept, removeUserPin, undoRemoval };
 }

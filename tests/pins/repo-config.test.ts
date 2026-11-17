@@ -214,7 +214,7 @@ test("v6 migration preserves runtime state, and corrupt ownership metadata is re
   const { store } = await fixture(t);
   await store.upsert("a", preview);
   const current = await store.document("a");
-  const { repo: _repo, ...old } = current;
+  const { repo: _repo, removals: _removals, ...old } = current;
   const legacy = {
     ...old,
     version: 6,

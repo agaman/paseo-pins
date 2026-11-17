@@ -102,7 +102,7 @@ test("queued Keep wins against later removal and stale menu identities cannot af
 
 test("v5 pins migrate lazily with Keep off; malformed current protection is rejected", async (t) => {
   const { store, pin } = await fixture(t);
-  const { repo: _repo, ...base } = await store.document("a");
+  const { repo: _repo, removals: _removals, ...base } = await store.document("a");
   const old = {
     ...base,
     sections: base.sections.map(({ source: _source, ...section }) => section),
@@ -112,11 +112,11 @@ test("v5 pins migrate lazily with Keep off; malformed current protection is reje
   const raw = JSON.stringify(old);
   await writeFile(store.filePath("a"), raw);
   const migrated = await store.document("a");
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.ok(migrated.pins.every((p) => p.kept === false));
   assert.equal(await readFile(store.filePath("a"), "utf8"), raw);
   await store.setKept("a", pin.key, pin.instanceId, true);
-  assert.equal(JSON.parse(await readFile(store.filePath("a"), "utf8")).version, 7);
+  assert.equal(JSON.parse(await readFile(store.filePath("a"), "utf8")).version, 8);
   assert.throws(() => pinDocumentSchema.parse({ ...migrated, pins: [{ ...pin, kept: "yes" }] }));
   assert.throws(() =>
     pinDocumentSchema.parse({ ...migrated, pins: [{ ...pin, kept: undefined }] }),

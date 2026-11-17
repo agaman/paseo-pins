@@ -8,12 +8,8 @@ import {
   startRefresh,
 } from "../../shared/refresh";
 
-// Request identity only, not a security token. Works in native and web clients.
-function requestId() {
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (digit) =>
-    (Number(digit) ^ (Math.floor(Math.random() * 16) >> (Number(digit) / 4))).toString(16),
-  );
-}
+import { requestId } from "../request-id";
+
 export function useRefresh(hostId: string, workspaceId: string) {
   const read = useRpc(readRefresh);
   const start = useRpc(startRefresh);

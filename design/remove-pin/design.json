@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "title": "Pins \u00b7 Remove a pin",
+  "kind": "prototype",
+  "description": "Proposal: a per-pin overflow menu groups Keep and Remove; kept pins remain visibly marked. Removing a pin affects only the workspace list, with an inline Undo action. Repository pins stay file-controlled. Interactive sample data only: open \u22ef, toggle Keep, remove and undo; Repo opens its explanation. No live pins change. Alternative artboards show separate pin and trash buttons aligned at the top of each item. Both versions support Keep, Remove, and Undo with sample data only.",
+  "artboards": [
+    {
+      "id": "desktop-light-actions",
+      "title": "Desktop \u00b7 Actions \u00b7 Light",
+      "file": "desktop-light-actions.html",
+      "width": 960,
+      "height": 820,
+      "group": "Desktop actions"
+    },
+    {
+      "id": "desktop-light-direct",
+      "title": "Desktop \u00b7 Pin + Trash \u00b7 Light",
+      "file": "desktop-light-direct.html",
+      "width": 960,
+      "height": 820,
+      "group": "Desktop actions"
+    },
+    {
+      "id": "desktop-dark-actions",
+      "title": "Desktop \u00b7 Actions \u00b7 Dark",
+      "file": "desktop-dark-actions.html",
+      "width": 960,
+      "height": 820,
+      "group": "Desktop actions"
+    },
+    {
+      "id": "desktop-dark-direct",
+      "title": "Desktop \u00b7 Pin + Trash \u00b7 Dark",
+      "file": "desktop-dark-direct.html",
+      "width": 960,
+      "height": 820,
+      "group": "Desktop actions"
+    },
+    {
+      "id": "desktop-light-removed",
+      "title": "Desktop \u00b7 Removed + Undo",
+      "file": "desktop-light-removed.html",
+      "width": 960,
+      "height": 820,
+      "group": "Removal"
+    },
+    {
+      "id": "mobile-dark-actions",
+      "title": "Mobile \u00b7 Actions",
+      "file": "mobile-dark-actions.html",
+      "width": 390,
+      "height": 844,
+      "group": "Mobile"
+    },
+    {
+      "id": "mobile-dark-direct",
+      "title": "Mobile \u00b7 Pin + Trash",
+      "file": "mobile-dark-direct.html",
+      "width": 390,
+      "height": 844,
+      "group": "Mobile"
+    },
+    {
+      "id": "mobile-light-removed",
+      "title": "Mobile \u00b7 Removed + Undo",
+      "file": "mobile-light-removed.html",
+      "width": 390,
+      "height": 844,
+      "group": "Mobile"
+    },
+    {
+      "id": "desktop-light-repo",
+      "title": "Repository pin \u00b7 File controlled",
+      "file": "desktop-light-repo.html",
+      "width": 960,
+      "height": 820,
+      "group": "Repository"
+    }
+  ]
+}
