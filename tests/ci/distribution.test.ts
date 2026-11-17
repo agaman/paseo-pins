@@ -54,6 +54,26 @@ test("distribution rejects local-only media and runtime dependencies until track
   assert.doesNotThrow(() => checkDistribution(root));
 });
 
+test("distribution rejects non-host imports even when they are type-only development dependencies", async (t) => {
+  const { root, write } = await fixture(t);
+  await write(
+    "package.json",
+    JSON.stringify({ devDependencies: { "@getpaseo/client": "0.15.4" } }),
+  );
+  await write(
+    "server/main.ts",
+    'import type { PaseoAgent } from "@getpaseo/client"; export type Agent = PaseoAgent;',
+  );
+  assert.throws(() => checkDistribution(root), /Non-host dependency @getpaseo\/client/);
+  await write("server/main.ts", 'import "external-library";');
+  assert.throws(() => checkDistribution(root), /Non-host dependency external-library/);
+  await write(
+    "server/main.ts",
+    'import type { PluginServerContext } from "@getpaseo/plugin/server"; export type Context = PluginServerContext;',
+  );
+  assert.doesNotThrow(() => checkDistribution(root));
+});
+
 test("distribution rejects missing tracked files, unresolved imports and absent entries", async (t) => {
   const { root, write, stage } = await fixture(t);
   await rm(path.join(root, "assets/menu.png"));

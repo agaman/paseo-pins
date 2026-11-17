@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync } from "node:fs";
+import { isBuiltin } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -11,6 +12,23 @@ const manifestSchema = z.object({
   icon: z.string().min(1).optional(),
   media: z.array(z.string().min(1)).optional(),
 });
+
+// Pins ships without dependency installation. These modules are supplied by Paseo 0.15.4.
+const hostModules = new Set([
+  "@getpaseo/plugin",
+  "@getpaseo/plugin/client",
+  "@getpaseo/plugin/client/ui",
+  "@getpaseo/plugin/client/react-native",
+  "@getpaseo/plugin/server",
+  "@getpaseo/plugin/server/provider",
+  "@getpaseo/plugin/server/usage",
+  "@getpaseo/plugin/server/acp",
+  "@tanstack/react-query",
+  "react",
+  "react/jsx-runtime",
+  "react-native",
+  "zod",
+]);
 
 /** Check the files delivered by a Git install, without loading plugin code. */
 export function checkDistribution(root: string) {
@@ -88,7 +106,17 @@ export function checkDistribution(root: string) {
       ts.preProcessFile(runtimeSource, true, true).importedFiles.map(({ fileName }) => fileName),
     );
     for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
-      if (!specifier.startsWith(".") && !specifier.startsWith("/")) continue;
+      if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
+        if (
+          !hostModules.has(specifier) &&
+          !isBuiltin(specifier) &&
+          !(specifier.startsWith("@getpaseo/protocol/") && !runtimeImports.has(specifier))
+        )
+          throw new Error(
+            `Non-host dependency ${specifier} in ${file}: Pins Git installs do not install dependencies, including type-only dependencies.`,
+          );
+        continue;
+      }
       const resolved = ts.resolveModuleName(
         specifier,
         absolute,

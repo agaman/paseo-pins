@@ -1,9 +1,12 @@
-import type { PaseoAgent } from "@getpaseo/client";
 import type {
   PluginButton,
   PluginButtonRegistration,
   PluginClientContext,
 } from "@getpaseo/plugin/client";
+
+type Agent = Awaited<
+  ReturnType<PluginClientContext["paseo"]["agents"]["list"]>
+>["entries"][number]["agent"];
 
 /** Follow the public agent directory without recreating open popovers on status updates. */
 export function registerComposerPills(
@@ -20,7 +23,7 @@ export function registerComposerPills(
     registrations.get(id)?.registration.remove();
     registrations.delete(id);
   };
-  const register = (agent: Pick<PaseoAgent, "id" | "workspaceId" | "archivedAt">) => {
+  const register = (agent: Pick<Agent, "id" | "workspaceId" | "archivedAt">) => {
     if (lifetime.signal.aborted) return;
     const { workspaceId } = agent;
     if (!workspaceId || agent.archivedAt) return remove(agent.id);
