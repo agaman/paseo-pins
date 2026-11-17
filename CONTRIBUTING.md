@@ -18,6 +18,10 @@ To return to the installed GitHub version, run `paseo plugin disable paseo-pins-
 
 `npm run check` runs lint, formatting, strict TypeScript, unused-code detection, duplication detection, and tests. The pre-commit hook runs the same gate. Install the hook in each clone; do not bypass it.
 
+GitHub Actions runs that gate on Node.js 22 and 24 for pull requests and pushes to `main`. It also runs `npm run check:distribution`, which checks that the manifest, runtime entries, transitive local imports, and declared local images are tracked regular files. Stage new distribution files before running this check locally. Remote image availability and live Paseo behavior still need manual verification.
+
+After the first successful Actions run, configure the `main` branch ruleset to require `Checks (Node 22)` and `Checks (Node 24)` before merging. The workflow uses read-only permissions and does not publish releases. Failed runs can be rerun from Actions; newer commits cancel superseded runs.
+
 Use `npm run format` for formatting or `npm run fix` for Biome's safe fixes. For partially staged changes, ensure the staged content matches what you validated. Duplication checks exclude tests.
 
 For UI changes, inspect desktop and compact layouts in light and dark themes. A compact browser preview does not establish native iOS or Android compatibility. Do focused checks during implementation, then complete the full gate after product review and before committing.
